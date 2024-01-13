@@ -1,0 +1,122 @@
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Video Hunter - Video downloader</title>
+    <link rel="apple-touch-icon" sizes="57x57" href="https://www.myvideohunter.com/static/apple-icon-57x57.png">
+    <link rel="apple-touch-icon" sizes="60x60" href="https://www.myvideohunter.com/static/apple-icon-60x60.png">
+    <link rel="apple-touch-icon" sizes="72x72" href="https://www.myvideohunter.com/static/apple-icon-72x72.png">
+    <link rel="apple-touch-icon" sizes="76x76" href="https://www.myvideohunter.com/static/apple-icon-76x76.png">
+    <link rel="apple-touch-icon" sizes="114x114" href="https://www.myvideohunter.com/static/apple-icon-114x114.png">
+    <link rel="apple-touch-icon" sizes="120x120" href="https://www.myvideohunter.com/static/apple-icon-120x120.png">
+    <link rel="apple-touch-icon" sizes="144x144" href="https://www.myvideohunter.com/static/apple-icon-144x144.png">
+    <link rel="apple-touch-icon" sizes="152x152" href="https://www.myvideohunter.com/static/apple-icon-152x152.png">
+    <link rel="apple-touch-icon" sizes="180x180" href="https://www.myvideohunter.com/static/apple-icon-180x180.png">
+    <link rel="icon" type="image/png" sizes="192x192"  href="https://www.myvideohunter.com/static/android-icon-192x192.png">
+    <link rel="icon" type="image/png" sizes="32x32" href="https://www.myvideohunter.com/static/favicon-32x32.png">
+    <link rel="icon" type="image/png" sizes="96x96" href="https://www.myvideohunter.com/static/favicon-96x96.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="https://www.myvideohunter.com/static/favicon-16x16.png">
+    <link rel="manifest" href="https://www.myvideohunter.com/static/manifest.json">
+    <meta name="description"
+        content="Download videos from Twitter by mentioning @BaixadorDeVideo. You can also use our app Video Hunter to download videos">
+    <meta property="og:title" content="Video Download" />
+    <meta property="og:url" content="/{{ .Video.Id }}" />
+    <meta property="og:description" content="{{ .Video.Text}}" />
+    <meta property="og:image" content="{{ .Video.ThumbnailUrl }}" />
+    <meta property="og:type" content="website" />
+    <meta property="twitter:card" content="summary_large_image" />
+    <meta property="twitter:url" content="/{{ .Video.Id }}" />
+    <meta property="twitter:title" content="Video Download" />
+    <meta property="twitter:description" content="{{ .Video.Text}}" />
+    <meta property="twitter:image" content="{{ .Video.ThumbnailUrl }}" />
+
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.1/dist/css/bootstrap.min.css" rel="stylesheet">
+
+    <script>
+        function downloadVideo(videoUrl) {
+            let oReq = new XMLHttpRequest();
+            oReq.responseType = 'blob';
+            oReq.onload = function (e) {
+                var blob = e.currentTarget.response;
+                let currentDate = new Date();
+                var fileName = 'video_' + currentDate.getTime() + '.mp4';
+                let a = document.createElement('a');
+                a.href = window.URL.createObjectURL(blob);
+                a.download = fileName;
+                a.dispatchEvent(new MouseEvent('click'));
+            };
+            oReq.open("get", videoUrl, true);
+            oReq.send();
+            oReq.onreadystatechange = () => {
+                if (oReq.readyState === 4) {
+                    this.isLoading = false
+                }
+            }
+        }
+    </script>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.1/dist/js/bootstrap.bundle.min.js"></script>
+    <!-- Global site tag (gtag.js) - Google Analytics -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-MBT9KLR914"></script>
+    <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag() { dataLayer.push(arguments); }
+        gtag('js', new Date());
+
+        gtag('config', 'G-MBT9KLR914');
+        // Disable Google Analytics for this page
+        gtag('config', 'G-MBT9KLR914', { 'send_page_view': false });
+    </script>
+    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-6526073251385305"
+        crossorigin="anonymous"></script>
+</head>
+
+<body>
+    <nav class="navbar navbar-expand-lg navbar-light bg-light">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="/">Video Hunter</a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse"
+                data-bs-target="#navbarSupportedContent" aria-controls="navbarSupportedContent" aria-expanded="false"
+                aria-label="Toggle navigation">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarSupportedContent">
+                <ul class="navbar-nav me-auto mb-2 mb-lg-0">
+                    <li class="nav-item">
+                        <a class="nav-link active" aria-current="page" href="/">Home</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/faq.html">FAQ</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/policy.html">Privacy Policy</a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container-fluid p-4 bg-secondary text-black text-center">
+        <div class="col d-flex justify-content-center">
+            <div class="card  p-0 col-sm-7 border-0 rounded-1 shadow mx-auto mb-3">
+                <img src="{{ .Video.ThumbnailUrl }}" class="card-img-top" style="max-height:250px; max-width: fit-content; align-self: center;">
+                <div class="card-body">
+                    <a href="{{ .Video.OriginalVideoUrl }}" class="card-title" target="_blank">Original URL</a>
+                  <p class="card-text">{{ .Video.Text }}</p>
+                  <p class="card-text"><small class="text-muted">Last updated 3 mins ago</small></p>
+                  <section>
+                    <div class="d-grid gap-2 col-6 mx-auto">
+                        {{ range $key, $value := .Video.Variants }}
+                        <a onclick="downloadVideo('{{ $value.URL }}')" class="btn btn-primary" type="button">Download: {{ $value.GetVidResFromUrl }}</a>
+                        {{ end }}
+                    </div>
+                  </section>
+                </div>
+              </div>
+        </div>
+
+    </div>
+</body>
+
+</html>

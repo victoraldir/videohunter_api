@@ -1,0 +1,9 @@
+{
+    "Parameters": {
+        "VIDEO_TABLE_NAME": "video",
+        "SETTINGS_TABLE_NAME": "settings",
+        "ENVIRONMENT": "local",
+        "LOG_LEVEL": "DEBUG",
+        "REGION": "us-east-1"
+    }
+}

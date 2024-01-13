@@ -1,0 +1,296 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  Video Hunter API
+
+  API for Video Hunter
+
+Globals:
+  Function:
+    Timeout: 5
+    MemorySize: 128
+    Architectures: ["arm64"]
+    Handler: bootstrap
+    Runtime: provided.al2
+    Environment:
+        Variables:
+          VIDEO_TABLE: !Ref VideoTableName
+          SETTINGS_TABLE: !Ref SettingsTableName
+          LOG_LEVEL: !Ref LogLevel
+          REGION: !Ref Region
+          ENVIRONMENT: !Ref Environment
+    Tracing: Active
+  Api:
+    TracingEnabled: true
+    Cors:
+      AllowMethods: "'GET,POST,OPTIONS'"
+      AllowHeaders: "'content-type'"
+      AllowOrigin: "'*'"
+      AllowCredentials: "'*'"
+
+Parameters:
+  Environment:
+    Type: String
+    Default: prod
+    AllowedValues:
+      - prod
+      - local
+    Description: Environment to deploy to
+  Region:
+    Type: String
+    Default: us-east-1
+    AllowedValues:
+      - us-east-1
+      - eu-central-1
+      - sa-east-1
+    Description: Region to deploy to
+  LogLevel:
+    Type: String
+    Default: DEBUG
+    AllowedValues:
+      - DEBUG
+      - INFO
+      - WARN
+      - ERROR
+    Description: Log level
+  SettingsTableName:
+    Type: String
+    Default: settings
+    Description: Settings table name
+  VideoTableName:
+    Type: String
+    Default: video
+    Description: Video table name
+  DomainName:
+    Type: String
+    Default: myvideohunter.com
+    Description: Domain name for CloudFront distribution
+
+Resources:
+  GatewayAPI:
+    Type: AWS::Serverless::Api
+    Properties:
+      StageName: !Ref Environment
+
+  CreateUrlFunction:
+    Type: AWS::Serverless::Function
+    Metadata:
+      BuildMethod: go1.x
+    Properties:
+      CodeUri: videohunter-api//functions/create-url
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref VideoTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref SettingsTable
+      Events:
+        CatchAll:
+          Type: Api
+          Properties:
+            RestApiId: !Ref GatewayAPI
+            Path: /url
+            Method: POST
+  
+  GetUrlFunction:
+    Type: AWS::Serverless::Function
+    Metadata:
+      BuildMethod: go1.x
+    Properties:
+      CodeUri: videohunter-api/functions/get-url
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref VideoTable
+      Events:
+        CatchAll:
+          Type: Api
+          Properties:
+            RestApiId: !Ref GatewayAPI
+            Path: /url/{id}
+            Method: GET
+
+  VideoTable:
+    Type: AWS::Serverless::SimpleTable
+    Properties:
+      PrimaryKey:
+        Name: id
+        Type: String
+      ProvisionedThroughput:
+        ReadCapacityUnits: 1
+        WriteCapacityUnits: 1
+      TableName: video
+  
+  SettingsTable:
+    Type: AWS::Serverless::SimpleTable
+    Properties:
+      PrimaryKey:
+        Name: key
+        Type: String
+      ProvisionedThroughput:
+        ReadCapacityUnits: 1
+        WriteCapacityUnits: 1
+      TableName: settings
+  
+  HostedZone:
+    Type: AWS::Route53::HostedZone
+    Properties:
+      Name: !Ref DomainName
+      HostedZoneConfig:
+        Comment: !Ref DomainName
+      HostedZoneTags:
+        - Key: Name
+          Value: !Ref DomainName
+  
+  WebsiteRecordSet:
+    Type: AWS::Route53::RecordSet
+    Properties:
+      HostedZoneId: !Ref HostedZone
+      Name: !Sub "www.${DomainName}"
+      Type: CNAME
+      TTL: '300'
+      ResourceRecords:
+        - !GetAtt CloudFrontDistribution.DomainName
+      # AliasTarget:
+      #   DNSName: !GetAtt CloudFrontDistribution.DomainName
+      #   HostedZoneId: !Ref HostedZone
+
+  Certificate:
+    Type: AWS::CertificateManager::Certificate
+    Properties:
+      DomainName: !Ref DomainName
+      DomainValidationOptions:
+        - DomainName: !Sub "${DomainName}"
+          HostedZoneId: !Ref HostedZone
+      ValidationMethod: DNS
+      SubjectAlternativeNames:
+        - !Sub "*.${DomainName}"
+
+  CloudFrontDistribution:
+    Type: AWS::CloudFront::Distribution
+    Properties:
+      DistributionConfig:
+        Enabled: true
+        DefaultRootObject: index.html
+        Origins:
+          - DomainName: !GetAtt WebsiteBucket.DomainName
+            Id: !Sub "${AWS::StackName}-s3-origin"
+            S3OriginConfig:
+              OriginAccessIdentity: ''
+            OriginAccessControlId: !GetAtt CloudFrontOriginAccessControl.Id
+          - DomainName: !Sub "${GatewayAPI}.execute-api.${AWS::Region}.amazonaws.com"
+            Id: !Sub "${AWS::StackName}-api-videohunter-gtw-origin"
+            CustomOriginConfig:
+              OriginProtocolPolicy: https-only
+        DefaultCacheBehavior:
+          AllowedMethods:
+            - GET
+            - HEAD
+            - OPTIONS
+          TargetOriginId: !Sub "${AWS::StackName}-s3-origin"
+          CachePolicyId: 658327ea-f89d-4fab-a63d-7e88639e58f6 # CachingOptimized
+          OriginRequestPolicyId: 88a5eaf4-2fd4-4709-b370-b4c650ea3fcf # CORS-S3Origin
+          ViewerProtocolPolicy: redirect-to-https
+        CacheBehaviors:
+          - PathPattern: /prod/*
+            TargetOriginId: !Sub "${AWS::StackName}-api-videohunter-gtw-origin"
+            ViewerProtocolPolicy: redirect-to-https
+            ForwardedValues:
+              QueryString: true
+              Cookies:
+                Forward: none
+            AllowedMethods:
+              - GET
+              - HEAD
+              - OPTIONS
+              - POST
+              - HEAD
+              - DELETE
+              - PUT
+              - PATCH
+        PriceClass: PriceClass_All
+        Aliases:
+          - !Sub "*.${DomainName}"
+        ViewerCertificate:
+          AcmCertificateArn: !Ref Certificate
+          SslSupportMethod: sni-only
+
+  CloudFrontOriginAccessControl:
+    Type: AWS::CloudFront::OriginAccessControl
+    Properties: 
+      OriginAccessControlConfig:
+        Description: Default Origin Access Control
+        Name: !Ref AWS::StackName
+        OriginAccessControlOriginType: s3
+        SigningBehavior: always
+        SigningProtocol: sigv4
+
+  # S3 bucket contains static contents
+  WebsiteBucket:
+    Type: AWS::S3::Bucket
+    DeletionPolicy: Delete
+    UpdateReplacePolicy: Retain
+    Properties:
+      BucketName: !Sub "${AWS::StackName}-website-bucket"
+      BucketEncryption:
+        ServerSideEncryptionConfiguration: 
+          - ServerSideEncryptionByDefault: 
+              SSEAlgorithm: AES256
+      PublicAccessBlockConfiguration: 
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+
+  # S3 bucket policy to allow access from CloudFront OAI
+  WebsiteBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref WebsiteBucket
+      PolicyDocument:
+        Statement:
+        - Action: s3:GetObject
+          Effect: Allow
+          Resource: !Sub ${WebsiteBucket.Arn}/*
+          Principal:
+            Service: cloudfront.amazonaws.com
+          Condition:
+            StringEquals:
+              AWS:SourceArn: !Sub arn:aws:cloudfront::${AWS::AccountId}:distribution/${CloudFrontDistribution}
+        - Effect: Deny
+          Principal: '*'
+          Action: 's3:*'
+          Resource: 
+            - !Sub ${WebsiteBucket.Arn}/*
+            - !GetAtt WebsiteBucket.Arn
+          Condition:
+            Bool: 
+              aws:SecureTransport: false
+
+  ApplicationResourceGroup:
+    Type: AWS::ResourceGroups::Group
+    Properties:
+      Name:
+        Fn::Sub: ApplicationInsights-SAM-${AWS::StackName}
+      ResourceQuery:
+        Type: CLOUDFORMATION_STACK_1_0
+  ApplicationInsightsMonitoring:
+    Type: AWS::ApplicationInsights::Application
+    Properties:
+      ResourceGroupName:
+        Ref: ApplicationResourceGroup
+      AutoConfigurationEnabled: 'true'
+Outputs:
+  VideoHunterAPI:
+    Description: API Gateway endpoint URL for Prod stage for Create URL function
+    Value: !Sub "https://${GatewayAPI}.execute-api.${AWS::Region}.amazonaws.com/${Environment}/url"
+  CreateUrlFunction:
+    Description: Create URL Lambda Function ARN
+    Value: !GetAtt CreateUrlFunction.Arn
+  CreateUrlFunctionIamRole:
+    Description: Implicit IAM Role created for Create URL function
+    Value: !GetAtt CreateUrlFunctionRole.Arn
+  HostedZone:
+    Description: Hosted zone for Video Hunter
+    Value: !Ref HostedZone
+  BucketWebsite:
+    Description: S3 bucket for Video Hunter website
+    Value: !GetAtt WebsiteBucket.WebsiteURL
