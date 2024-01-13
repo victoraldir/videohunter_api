@@ -107,6 +107,20 @@ Resources:
             RestApiId: !Ref GatewayAPI
             Path: /url/{id}
             Method: GET
+  
+  TelegramWebhookFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: videohunter-bot/telegram-webhook/
+      Handler: app.lambda_handler
+      Runtime: python3.9
+      Events:
+        Webhook:
+          Type: Api
+          Properties:
+            RestApiId: !Ref GatewayAPI
+            Path: /telegram-webhook # TODO Can we whitelist the IP address here?
+            Method: POST
 
   VideoTable:
     Type: AWS::Serverless::SimpleTable
