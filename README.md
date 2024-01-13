@@ -1,5 +1,5 @@
-![build](https://github.com/victoraldir/sam-go-api/actions/workflows/ci.yml/badge.svg)
-[![codecov](https://codecov.io/github/victoraldir/sam-go-api/graph/badge.svg?token=5HRL3HC8Z4)](https://codecov.io/github/victoraldir/sam-go-api)
+![build](https://github.com/victoraldir/videohunter_api/actions/workflows/ci.yml/badge.svg)
+[![codecov](https://codecov.io/github/victoraldir/videohunter_api/graph/badge.svg?token=5HRL3HC8Z4)](https://codecov.io/github/victoraldir/videohunter_api)
 
 <!-- PROJECT LOGO -->
 <br />
