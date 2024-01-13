@@ -1,5 +1,5 @@
 ![build](https://github.com/victoraldir/videohunter_api/actions/workflows/ci.yml/badge.svg)
-[![codecov](https://codecov.io/github/victoraldir/videohunter_api/graph/badge.svg?token=5HRL3HC8Z4)](https://codecov.io/github/victoraldir/videohunter_api)
+[![codecov](https://codecov.io/github/victoraldir/videohunter_api/graph/badge.svg?token=VQCTKLL0YP)](https://codecov.io/github/victoraldir/videohunter_api)
 
 <!-- PROJECT LOGO -->
 <br />
