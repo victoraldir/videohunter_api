@@ -72,7 +72,6 @@ func (t *twitterDownloaderRepository) DownloadVideo(url string, authToken ...str
 
 	// Get video status
 	showStatusResp, err := t.showStatus(videoId, t.headers)
-	fmt.Println("showStatusResp", string(showStatusResp))
 	slog.Debug("/statuses/lookup.json result", "url", url, "response", string(showStatusResp))
 
 	if err != nil {

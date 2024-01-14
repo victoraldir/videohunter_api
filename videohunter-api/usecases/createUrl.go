@@ -112,9 +112,12 @@ func (v *videoDownloaderUseCase) Execute(url string) (*events.CreateVideoRespons
 
 func videoToCreateVideoResponse(video *domain.Video) *events.CreateVideoResponse {
 
-	slog.Debug("Parsing video to VideoResponse", "video", video)
-
 	videoResponse := &events.CreateVideoResponse{}
 	videoResponse.Id = video.IdDB
+	videoResponse.Description = video.Text
+	videoResponse.ThumbnailUrl = video.GetMedia().MediaUrl
+
+	slog.Debug("videoToCreateVideoResponse", "videoResponse", videoResponse)
+
 	return videoResponse
 }
