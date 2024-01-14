@@ -51,9 +51,9 @@ func TestHandler(t *testing.T) {
 			// mock a request with a valid video_url
 			name: "Valid video_url",
 			request: events.APIGatewayProxyRequest{
-				Body: "{\"video_url\":\"https://twitter.com/elonmusk/status/1273792507348928512\"}",
+				Body: "{\"video_url\":\"https://twitter.com/victoraldir/status/1746348632146690148\"}",
 			},
-			expectedBody:  "{\"id\":\"123\"}",
+			expectedBody:  "{\"id\":\"123\",\"thumbnail_url\":\"\",\"description\":\"\"}",
 			expectedError: nil,
 			expectedCode:  200,
 		},
