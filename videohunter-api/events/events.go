@@ -10,7 +10,9 @@ const (
 
 type (
 	CreateVideoResponse struct {
-		Id string `json:"id"`
+		Id           string `json:"id"`
+		ThumbnailUrl string `json:"thumbnail_url"`
+		Description  string `json:"description"`
 	}
 
 	GetVideoResponse struct {

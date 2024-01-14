@@ -119,7 +119,7 @@ func TestVideoDownloaderUseCase_Execute(t *testing.T) {
 		dynamodDBClientMock.EXPECT().GetItem(gomock.Any()).Return(nil, nil).AnyTimes()
 
 		// Arrange
-		videoUrl := "https://twitter.com/crazyclipsonly/status/1737853430482538584"
+		videoUrl := "https://twitter.com/victoraldir/status/1746565606705426501"
 		expectedMd5Hash := utils.GenerateShortID(videoUrl)
 
 		httpClient := &http.Client{}
@@ -141,6 +141,8 @@ func TestVideoDownloaderUseCase_Execute(t *testing.T) {
 		assert.Nil(t, err)
 		assert.NotNil(t, video)
 		assert.Equal(t, expectedMd5Hash, video.Id)
+		assert.NotEmpty(t, video.ThumbnailUrl)
+		assert.NotEmpty(t, video.Description)
 	})
 
 }

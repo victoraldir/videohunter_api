@@ -112,9 +112,32 @@ func (v *videoDownloaderUseCase) Execute(url string) (*events.CreateVideoRespons
 
 func videoToCreateVideoResponse(video *domain.Video) *events.CreateVideoResponse {
 
-	slog.Debug("Parsing video to VideoResponse", "video", video)
+	slog.Debug("video pre parse", "video", video)
 
 	videoResponse := &events.CreateVideoResponse{}
 	videoResponse.Id = video.IdDB
+	videoResponse.Description = video.Text
+	videoResponse.ThumbnailUrl = video.ThumbnailUrl
+
+	if videoResponse.ThumbnailUrl == "" {
+		if video.ExtendedEntities.Media != nil {
+			if video.ExtendedEntities.Media[0].Type == "video" {
+				slog.Debug("extended entities is video", "video.ExtendedEntities.Media[0].MediaUrl", video.ExtendedEntities.Media[0].MediaUrl)
+				videoResponse.ThumbnailUrl = video.ExtendedEntities.Media[0].MediaUrl
+				return videoResponse
+			}
+		}
+
+		if video.QuotedStatus.ExtendedEntities.Media != nil {
+			if video.QuotedStatus.ExtendedEntities.Media[0].Type == "video" {
+				slog.Debug("quoted status extended entities is video", "video.QuotedStatus.ExtendedEntities.Media[0].MediaUrl", video.QuotedStatus.ExtendedEntities.Media[0].MediaUrl)
+				videoResponse.ThumbnailUrl = video.QuotedStatus.ExtendedEntities.Media[0].MediaUrl
+				return videoResponse
+			}
+		}
+	}
+
+	slog.Debug("videoToCreateVideoResponse", "videoResponse", videoResponse)
+
 	return videoResponse
 }
