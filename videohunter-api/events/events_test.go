@@ -39,3 +39,20 @@ func TestVideoResponseVariant_GetVidResFromUrl_WithBitrate(t *testing.T) {
 	// Assert
 	assert.Equal(t, "480x852", vidRes, "they should be equal")
 }
+
+func TestVideoResponseVariant_GetVidResFromUrl_WithoutAvc(t *testing.T) {
+
+	// Arrange
+	url := "https://video.twimg.com/ext_tw_video/1656656738727362561/pu/vid/320x568/SvOetDa460v4voY8.mp4?tag=12"
+	videoResponseVariant := VideoResponseVariant{
+		URL:         url,
+		Bitrate:     832000,
+		ContentType: "test",
+	}
+
+	// Act
+	vidRes := videoResponseVariant.GetVidResFromUrl()
+
+	// Assert
+	assert.Equal(t, "320x568", vidRes, "they should be equal")
+}
