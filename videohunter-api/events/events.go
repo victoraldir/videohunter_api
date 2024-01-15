@@ -6,7 +6,7 @@ const (
 	amplifyVideoIdx = 7
 	extTwVideoIdx   = 8
 	domainIdx       = 3
-	avcIdx          = 4
+	avcIdx          = 7
 )
 
 type (
@@ -38,11 +38,11 @@ func (v *VideoResponseVariant) GetVidResFromUrl() string {
 
 	if splittedUrl[domainIdx] == "ext_tw_video" {
 
-		if splittedUrl[avcIdx] != "avc1" {
-			return splittedUrl[amplifyVideoIdx]
+		if splittedUrl[avcIdx] == "avc1" {
+			return splittedUrl[extTwVideoIdx]
 		}
 
-		return splittedUrl[extTwVideoIdx]
+		return splittedUrl[extTwVideoIdx-1]
 	}
 
 	return splittedUrl[amplifyVideoIdx]
