@@ -54,6 +54,9 @@ func GetVideoId(twitterUrl string) string {
 }
 
 func GenerateShortID(inputString string) string {
+
+	inputString = NormalizeVideoUrl(inputString)
+
 	encodedBytes := base64.URLEncoding.EncodeToString([]byte(inputString))
 	return encodedBytes
 }
