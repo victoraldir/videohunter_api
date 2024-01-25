@@ -4,8 +4,8 @@ APP_FOLDER := videohunter-api
 APP_LOCAL_NETWORK := myvideohunter-api
 FUNCTIONS := create-url get-url
 # Get token from env variable
-BOT_TOKEN ?= $(shell echo ${BOT_TOKEN}) 
-PARAMETERS_OVERRIDE := LogLevel=INFO BotToken=${BOT_TOKEN}
+TELEGRAM_BOT ?= $(shell echo ${BOT_TOKEN}) 
+PARAMETERS_OVERRIDE := LogLevel=INFO BotToken=${TELEGRAM_BOT}
 
 # To try different version of Go
 GO := go
