@@ -69,7 +69,6 @@ Parameters:
   BotToken:
     Type: String
     Description: Telegram bot token
-    Default: "dummy"
 
 Resources:
   GatewayAPI:
