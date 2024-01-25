@@ -71,7 +71,7 @@ Resources:
   GatewayAPI:
     Type: AWS::Serverless::Api
     Properties:
-      StageName: !Ref Environment
+      StageName: !Ref Environment 
 
   CreateUrlFunction:
     Type: AWS::Serverless::Function

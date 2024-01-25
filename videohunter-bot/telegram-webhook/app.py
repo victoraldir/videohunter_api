@@ -5,7 +5,7 @@ import urllib.request
 
 headers = {"Content-Type": "application/json"}
 
-# Get token from environment variable
+# Get token from environment variable.
 telegram_bot_token = os.environ['BOT_TOKEN']
 
 def is_valid_url(url):
