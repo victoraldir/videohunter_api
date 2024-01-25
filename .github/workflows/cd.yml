@@ -3,6 +3,7 @@ on:
   push:
     paths:
       - videohunter-api/**
+      - videohunter-bot/**
       - samconfig.toml
     branches: [ main ]
 
