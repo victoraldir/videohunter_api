@@ -3,7 +3,7 @@ REGION := us-east-1
 APP_FOLDER := videohunter-api
 APP_LOCAL_NETWORK := myvideohunter-api
 FUNCTIONS := create-url get-url
-PARAMETERS_OVERRIDE := LogLevel=INFO # Would be great to load this from a json file
+PARAMETERS_OVERRIDE := LogLevel=INFO,BotToken=${BOT_TOKEN}
 
 # To try different version of Go
 GO := go
