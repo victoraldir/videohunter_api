@@ -117,7 +117,7 @@ Resources:
     Properties:
       CodeUri: videohunter-bot/telegram-webhook/
       Handler: app.lambda_handler
-      Runtime: python3.9
+      Runtime: python3.8
       Events:
         Webhook:
           Type: Api
