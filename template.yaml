@@ -19,7 +19,7 @@ Globals:
           LOG_LEVEL: !Ref LogLevel
           REGION: !Ref Region
           ENVIRONMENT: !Ref Environment
-          BOT_TOKEN:
+          BOT_TOKEN: !Ref BotToken
     Tracing: Active
   Api:
     TracingEnabled: true
@@ -71,7 +71,7 @@ Resources:
   GatewayAPI:
     Type: AWS::Serverless::Api
     Properties:
-      StageName: !Ref Environment 
+      StageName: !Ref Environment
 
   CreateUrlFunction:
     Type: AWS::Serverless::Function
