@@ -19,6 +19,7 @@ Globals:
           LOG_LEVEL: !Ref LogLevel
           REGION: !Ref Region
           ENVIRONMENT: !Ref Environment
+          BOT_TOKEN: !Ref BotToken
     Tracing: Active
   Api:
     TracingEnabled: true
