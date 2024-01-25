@@ -19,7 +19,7 @@ Globals:
           LOG_LEVEL: !Ref LogLevel
           REGION: !Ref Region
           ENVIRONMENT: !Ref Environment
-          BOT_TOKEN: !Ref BotToken
+          BOT_TOKEN:
     Tracing: Active
   Api:
     TracingEnabled: true
@@ -66,9 +66,6 @@ Parameters:
     Type: String
     Default: myvideohunter.com
     Description: Domain name for CloudFront distribution
-  BotToken:
-    Type: String
-    Description: Telegram bot token
 
 Resources:
   GatewayAPI:
