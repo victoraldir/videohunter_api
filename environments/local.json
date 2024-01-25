@@ -4,6 +4,7 @@
         "SETTINGS_TABLE_NAME": "settings",
         "ENVIRONMENT": "local",
         "LOG_LEVEL": "DEBUG",
-        "REGION": "us-east-1"
+        "REGION": "us-east-1",
+        "BOT_TOKEN": "dummybottoken"
     }
 }

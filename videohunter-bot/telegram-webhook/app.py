@@ -1,8 +1,12 @@
+import os
 import re
 import json
 import urllib.request
 
 headers = {"Content-Type": "application/json"}
+
+# Get token from environment variable
+telegram_bot_token = os.environ['BOT_TOKEN']
 
 def is_valid_url(url):
         regex = re.compile(
@@ -17,7 +21,6 @@ def is_valid_url(url):
         return bool(regex.match(url))
 
 def send_message(message:str, chat_id:str):
-    telegram_bot_token = '6615189888:AAGm3QKRaWyJHsXrLp8Qdr1Wg4VPoohR5MI'
     telegram_url = f'https://api.telegram.org/bot{telegram_bot_token}/sendMessage'
     params = {
         'chat_id': chat_id,
