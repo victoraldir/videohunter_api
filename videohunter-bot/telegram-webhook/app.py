@@ -62,7 +62,7 @@ def lambda_handler(event, context):
         Return doc: https://docs.aws.amazon.com/apigateway/latest/developerguide/set-up-lambda-proxy-integrations.html
     """
 
-    url = "https://692d-2804-7f7-a6b9-9f28-b84c-ba1c-cb1-7c0.ngrok-free.app/url"
+    url = "https://myvideohunter.com/prod/url"
 
     body = json.loads(event['body'])
 
