@@ -66,6 +66,9 @@ Parameters:
     Type: String
     Default: myvideohunter.com
     Description: Domain name for CloudFront distribution
+  BotToken:
+    Type: String
+    Description: Telegram bot token
 
 Resources:
   GatewayAPI:
