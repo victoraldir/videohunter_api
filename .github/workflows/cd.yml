@@ -5,6 +5,7 @@ on:
       - videohunter-api/**
       - videohunter-bot/**
       - samconfig.toml
+      - template.yaml
     branches: [ main ]
 
 jobs:
