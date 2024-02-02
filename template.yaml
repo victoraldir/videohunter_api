@@ -36,7 +36,7 @@ Parameters:
     AllowedValues:
       - prod
       - local
-    Description: Environment to deploy to
+    Description: Environment to deploy to.
   Region:
     Type: String
     Default: us-east-1
