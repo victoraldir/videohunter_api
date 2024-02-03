@@ -69,11 +69,15 @@ func (h *GetUrlHandler) Handle(request events.APIGatewayProxyRequest) (events.AP
 		}, nil
 	}
 
+	// Set CORS headers for the preflight request
+	headers := map[string]string{
+		"Access-Control-Allow-Origin": "*",
+		"Content-Type":                "text/html",
+	}
+
 	return events.APIGatewayProxyResponse{
 		StatusCode: 200,
 		Body:       htmlBuffer.String(),
-		Headers: map[string]string{
-			"Content-Type": "text/html",
-		},
+		Headers:    headers,
 	}, nil
 }
