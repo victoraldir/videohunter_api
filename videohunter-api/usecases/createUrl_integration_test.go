@@ -1,3 +1,6 @@
+//go:build integration
+// +build integration
+
 package usecases
 
 import (
@@ -6,22 +9,14 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/victoraldir/myvideohunterapi/adapters/dynamodb"
-	dynamodb_mock "github.com/victoraldir/myvideohunterapi/adapters/dynamodb/mocks"
 	"github.com/victoraldir/myvideohunterapi/adapters/twitter"
 	"github.com/victoraldir/myvideohunterapi/utils"
 	"go.uber.org/mock/gomock"
 )
 
-var dynamodDBClientMock *dynamodb_mock.MockDynamodDBClient
+func TestVideoDownloaderUseCase_Execute_Integration(t *testing.T) {
 
-func setup(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
-	dynamodDBClientMock = dynamodb_mock.NewMockDynamodDBClient(ctrl)
-}
-
-func TestVideoDownloaderUseCase_Execute(t *testing.T) {
+	realHttpClient := &http.Client{}
 
 	t.Run("Should download video from twitter", func(t *testing.T) {
 
@@ -32,11 +27,9 @@ func TestVideoDownloaderUseCase_Execute(t *testing.T) {
 		// Arrange
 		videoUrl := "https://x.com/PicturesFoIder/status/1745002642089349387?s=20"
 
-		httpClient := &http.Client{}
-
 		videoRepository := dynamodb.NewDynamodbVideoRepository(dynamodDBClientMock, "video")
 		settingsRepository := dynamodb.NewDynamoSettingsRepository(dynamodDBClientMock, "settings")
-		downloadeRepository := twitter.NewTwitterDownloaderRepository(httpClient)
+		downloadeRepository := twitter.NewTwitterDownloaderRepository(realHttpClient)
 
 		videoDownloaderUseCase := NewVideoDownloaderUseCase(
 			videoRepository,
@@ -62,11 +55,9 @@ func TestVideoDownloaderUseCase_Execute(t *testing.T) {
 		// Arrange
 		videoUrl := "https://twitter.com/victoraldir/status/1736141224891822316"
 
-		httpClient := &http.Client{}
-
 		videoRepository := dynamodb.NewDynamodbVideoRepository(dynamodDBClientMock, "video")
 		settingsRepository := dynamodb.NewDynamoSettingsRepository(dynamodDBClientMock, "settings")
-		downloadeRepository := twitter.NewTwitterDownloaderRepository(httpClient)
+		downloadeRepository := twitter.NewTwitterDownloaderRepository(realHttpClient)
 
 		videoDownloaderUseCase := NewVideoDownloaderUseCase(
 			videoRepository,
@@ -91,11 +82,9 @@ func TestVideoDownloaderUseCase_Execute(t *testing.T) {
 		// Arrange
 		videoUrl := "https://twitter.com/samplerandompage/status/2627763231482538584"
 
-		httpClient := &http.Client{}
-
 		videoRepository := dynamodb.NewDynamodbVideoRepository(dynamodDBClientMock, "video")
 		settingsRepository := dynamodb.NewDynamoSettingsRepository(dynamodDBClientMock, "settings")
-		downloadeRepository := twitter.NewTwitterDownloaderRepository(httpClient)
+		downloadeRepository := twitter.NewTwitterDownloaderRepository(realHttpClient)
 
 		videoDownloaderUseCase := NewVideoDownloaderUseCase(
 			videoRepository,
@@ -122,11 +111,9 @@ func TestVideoDownloaderUseCase_Execute(t *testing.T) {
 		videoUrl := "https://x.com/historyinmemes/status/1746260828704157829?s=20"
 		expectedMd5Hash := utils.GenerateShortID(videoUrl)
 
-		httpClient := &http.Client{}
-
 		videoRepository := dynamodb.NewDynamodbVideoRepository(dynamodDBClientMock, "video")
 		settingsRepository := dynamodb.NewDynamoSettingsRepository(dynamodDBClientMock, "settings")
-		downloadeRepository := twitter.NewTwitterDownloaderRepository(httpClient)
+		downloadeRepository := twitter.NewTwitterDownloaderRepository(realHttpClient)
 
 		videoDownloaderUseCase := NewVideoDownloaderUseCase(
 			videoRepository,

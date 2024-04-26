@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"regexp"
 
+	"github.com/victoraldir/myvideohunterapi/adapters/httpclient"
 	"github.com/victoraldir/myvideohunterapi/domain"
 	"github.com/victoraldir/myvideohunterapi/utils"
 )
@@ -37,11 +38,11 @@ const (
 )
 
 type twitterDownloaderRepository struct {
-	client  *http.Client
+	client  httpclient.HttpClient
 	headers map[HeaderKey]string
 }
 
-func NewTwitterDownloaderRepository(client *http.Client) *twitterDownloaderRepository {
+func NewTwitterDownloaderRepository(client httpclient.HttpClient) *twitterDownloaderRepository {
 
 	headers := map[HeaderKey]string{
 		UserAgent: crawlerUserAgent,
@@ -58,7 +59,7 @@ func (t *twitterDownloaderRepository) DownloadVideo(url string, authToken ...str
 	var currentToken *string
 
 	if len(authToken) == 0 {
-		currentToken, err = t.claimNewGuestToken(videoId, &t.headers)
+		currentToken, err = t.claimNewGuestToken(videoId)
 
 		if err != nil {
 			return nil, nil, err
@@ -111,7 +112,7 @@ func (t *twitterDownloaderRepository) DownloadVideo(url string, authToken ...str
 	return &video, currentToken, nil
 }
 
-func (t *twitterDownloaderRepository) claimNewGuestToken(videoId string, headers *map[HeaderKey]string) (authToken *string, err error) {
+func (t *twitterDownloaderRepository) claimNewGuestToken(videoId string) (authToken *string, err error) {
 
 	// Get bearer file (.js)
 	bearerFile, err := t.getBearerFile(videoId, t.headers)
@@ -199,7 +200,7 @@ func (t *twitterDownloaderRepository) showStatus(videoId string, headers map[Hea
 
 func (t *twitterDownloaderRepository) sendRequest(url string, method HttpMethod, headers map[HeaderKey]string) (*[]byte, error) {
 
-	client := &http.Client{}
+	// client := &http.Client{}
 
 	req, err := http.NewRequest(string(method), url, nil)
 
@@ -211,7 +212,7 @@ func (t *twitterDownloaderRepository) sendRequest(url string, method HttpMethod,
 		req.Header.Set(string(key), value)
 	}
 
-	resp, err := client.Do(req)
+	resp, err := t.client.Do(req)
 
 	if err != nil {
 		return nil, err

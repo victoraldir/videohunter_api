@@ -6,19 +6,15 @@ require (
 )
 
 require (
-	github.com/fatih/structs v1.1.0 // indirect
-	github.com/gobuffalo/flect v0.3.0 // indirect
-	github.com/gobuffalo/tags/v3 v3.1.4 // indirect
-	github.com/gobuffalo/validate/v3 v3.3.3 // indirect
-	github.com/gofrs/uuid v4.2.0+incompatible // indirect
 	github.com/jmespath/go-jmespath v0.4.0 // indirect
+	github.com/kr/pretty v0.1.0 // indirect
+	gopkg.in/check.v1 v1.0.0-20190902080502-41f04d3bba15 // indirect
 )
 
 require (
 	github.com/aws/aws-sdk-go v1.49.9
 	github.com/caarlos0/env/v6 v6.10.1
 	github.com/davecgh/go-spew v1.1.1 // indirect
-	github.com/leapkit/core v1.2.7
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
