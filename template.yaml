@@ -298,7 +298,7 @@ Resources:
       AutoConfigurationEnabled: 'true'
 Outputs:
   VideoHunterAPI:
-    Description: API Gateway endpoint URL for Prod stage for Create URL function
+    Description: API Gateway endpoint URL for Prod stage for Create URL function.
     Value: !Sub "https://${GatewayAPI}.execute-api.${AWS::Region}.amazonaws.com/${Environment}/url"
   CreateUrlFunction:
     Description: Create URL Lambda Function ARN
