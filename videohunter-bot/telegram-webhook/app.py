@@ -63,7 +63,6 @@ def lambda_handler(event, context):
                 print('######')
                 print("Key 'message' not found in the body.")
                 print('######')
-                send_message("Key 'message' not found in the body.", telegram_chat_id)
                 return {
                     "statusCode": 200,
                     "body": "ok",
@@ -72,7 +71,6 @@ def lambda_handler(event, context):
             print('######')
             print("Key 'message' not found in the body.")
             print('######')
-            send_message("Key 'message' not found in the body.", telegram_chat_id)
             return {
                 "statusCode": 200,
                 "body": "Key 'message' not found in the body",
