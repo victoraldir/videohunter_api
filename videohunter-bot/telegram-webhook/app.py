@@ -2,6 +2,7 @@ import os
 import re
 import json
 import urllib.request
+import urllib.error
 
 headers = {"Content-Type": "application/json"}
 
@@ -39,76 +40,96 @@ def send_message(message:str, chat_id:str):
     request = urllib.request.Request(telegram_url, headers=headers, data=body_message, method='POST')
     response = urllib.request.urlopen(request, timeout=5)
 
+    print('######')
+    print("response: ", response)
+    print('######')
+
+
 
 def lambda_handler(event, context):
-    """Sample pure Lambda function
 
-    Parameters
-    ----------
-    event: dict, required
-        API Gateway Lambda Proxy Input Format
 
-        Event doc: https://docs.aws.amazon.com/apigateway/latest/developerguide/set-up-lambda-proxy-integrations.html#api-gateway-simple-proxy-for-lambda-input-format
+    try:
+        url = "https://myvideohunter.com/prod/url"
 
-    context: object, required
-        Lambda Context runtime methods and attributes
+        body = json.loads(event['body'])
 
-        Context doc: https://docs.aws.amazon.com/lambda/latest/dg/python-context-object.html
+        print('######')
+        print(body)
+        print('######')
+        
+        try:
+            if not body or not body['message']:
+                print('######')
+                print("Key 'message' not found in the body.")
+                print('######')
+                send_message("Key 'message' not found in the body.", telegram_chat_id)
+                return {
+                    "statusCode": 200,
+                    "body": "ok",
+                }
+        except KeyError:
+            print('######')
+            print("Key 'message' not found in the body.")
+            print('######')
+            send_message("Key 'message' not found in the body.", telegram_chat_id)
+            return {
+                "statusCode": 200,
+                "body": "Key 'message' not found in the body",
+            }
+        
+        telegram_chat_id = body['message']['from']['id']
 
-    Returns
-    ------
-    API Gateway Lambda Proxy Output Format: dict
+        if not is_valid_url(body['message']['text']):
+            print('######')
+            print("Invalid URL")
+            print('######')
+            send_message("Invalid URL", telegram_chat_id)
+            return {
+                "statusCode": 200,
+                "body": "ok",
+            }
+            
 
-        Return doc: https://docs.aws.amazon.com/apigateway/latest/developerguide/set-up-lambda-proxy-integrations.html
-    """
+        url_twitter = body['message']['text']
 
-    url = "https://myvideohunter.com/prod/url"
+        data = {"video_url": url_twitter}
+        data = json.dumps(data).encode('utf-8')
 
-    body = json.loads(event['body'])
+        print('######')
+        print("data video hunter", data)
+        print('######')
 
-    print('######')
-    print(body)
-    print('######')
-    
-    if not body or not body['message']:
-        return {
-            "statusCode": 200,
-            "body": "ok",
-        }
-    
-    telegram_chat_id = body['message']['from']['id']
+        try:
+            request = urllib.request.Request(url, headers=headers, data=data, method='POST')
+            response = urllib.request.urlopen(request, timeout=5)
+        except urllib.error.HTTPError as e:
+            print('######')
+            print('HTTPError: ', e.code)
+            print('Error message: ', e.read())
+            print('######')
+            return {
+                "statusCode": e.code,
+                "body": "HTTP Error occurred",
+            }
 
-    if not is_valid_url(body['message']['text']):
-        send_message("Url inválida, envie uma url válida do twitter.", telegram_chat_id)
-        return {
-            "statusCode": 200,
-            "body": "ok",
-        }
-         
+        resposta_json = json.loads(response.read().decode('utf-8'))
+        video_id = resposta_json['id']
 
-    url_twitter = body['message']['text']
+        print('######')
+        print("video id: ", video_id)
+        print('######')
 
-    data = {"video_url": url_twitter}
-    data = json.dumps(data).encode('utf-8')
+        full_message = f"Here's you video: \n\n {url}/{video_id}"    
 
-    print('######')
-    print("data video hunter", data)
-    print('######')
+        send_message(full_message, telegram_chat_id)
+    except Exception as e:
+        print('######')
+        print("Error: ", e)
+        print('######')
+        send_message("An error occurred", telegram_chat_id)
 
-    request = urllib.request.Request(url, headers=headers, data=data, method='POST')
-    response = urllib.request.urlopen(request, timeout=5)
-
-    resposta_json = json.loads(response.read().decode('utf-8'))
-    video_id = resposta_json['id']
-
-    print('######')
-    print("video id: ", video_id)
-    print('######')
-
-    full_message = f"Segue a url do video: \n\n {url}/{video_id}"    
-
-    send_message(full_message, telegram_chat_id)
-
+    # Return a 200 status code to the Telegram API anyways 
     return {
         "statusCode": 200,
         "body": "ok",
