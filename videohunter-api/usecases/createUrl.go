@@ -20,6 +20,18 @@ type videoDownloaderUseCase struct {
 	SettingsRepository repositories.SettingsRepository
 }
 
+type redditVideoDownloaderUseCase struct {
+	VideoRepository          repositories.VideoRepository
+	RedditDownloadRepository repositories.DownloadRepository
+}
+
+func NewRedditVideoDownloaderUseCase(videoRepository repositories.VideoRepository, redditDownloadRepository repositories.DownloadRepository) *redditVideoDownloaderUseCase {
+	return &redditVideoDownloaderUseCase{
+		VideoRepository:          videoRepository,
+		RedditDownloadRepository: redditDownloadRepository,
+	}
+}
+
 func NewVideoDownloaderUseCase(videoRepository repositories.VideoRepository,
 	downloadRepository repositories.DownloadRepository,
 	settingsRepository repositories.SettingsRepository) *videoDownloaderUseCase {
@@ -110,12 +122,47 @@ func (v *videoDownloaderUseCase) Execute(url string) (*events.CreateVideoRespons
 	return videoToCreateVideoResponse(videoDb), nil
 }
 
+func (v *redditVideoDownloaderUseCase) Execute(url string) (*events.CreateVideoResponse, error) {
+
+	slog.Debug("redditVideoDownloaderUseCase excute() url:", "url", url)
+	videoId := utils.Base64Encode(url)
+	slog.Debug("redditVideoDownloaderUseCase excute() videoId:", "videoId", videoId)
+
+	video, err := v.VideoRepository.GetVideo(videoId)
+
+	if err != nil {
+		return nil, err
+	}
+
+	if video != nil {
+		return videoToCreateVideoResponse(video), nil
+	}
+
+	newVideo, _, err := v.RedditDownloadRepository.DownloadVideo(url)
+	slog.Debug("redditVideoDownloaderUseCase excute() DownloadVideo():", "video", newVideo)
+
+	if err != nil {
+		return nil, err
+	}
+
+	newVideo.IdDB = videoId
+
+	videoDb, err := v.VideoRepository.SaveVideo(newVideo)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return videoToCreateVideoResponse(videoDb), nil
+
+}
+
 func videoToCreateVideoResponse(video *domain.Video) *events.CreateVideoResponse {
 
 	videoResponse := &events.CreateVideoResponse{}
 	videoResponse.Id = video.IdDB
 	videoResponse.Description = video.Text
-	videoResponse.ThumbnailUrl = video.GetMedia().MediaUrl
+	videoResponse.ThumbnailUrl = video.ThumbnailUrl
 
 	slog.Debug("videoToCreateVideoResponse", "videoResponse", videoResponse)
 

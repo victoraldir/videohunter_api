@@ -1,6 +1,3 @@
-//go:build integration
-// +build integration
-
 package usecases
 
 import (
@@ -9,10 +6,21 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/victoraldir/myvideohunterapi/adapters/dynamodb"
+	dynamodb_mock "github.com/victoraldir/myvideohunterapi/adapters/dynamodb/mocks"
+	"github.com/victoraldir/myvideohunterapi/adapters/reddit"
 	"github.com/victoraldir/myvideohunterapi/adapters/twitter"
 	"github.com/victoraldir/myvideohunterapi/utils"
 	"go.uber.org/mock/gomock"
 )
+
+var dynamodDBClientMock *dynamodb_mock.MockDynamodDBClient
+
+func setup(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	dynamodDBClientMock = dynamodb_mock.NewMockDynamodDBClient(ctrl)
+}
 
 func TestVideoDownloaderUseCase_Execute_Integration(t *testing.T) {
 
@@ -25,7 +33,7 @@ func TestVideoDownloaderUseCase_Execute_Integration(t *testing.T) {
 		dynamodDBClientMock.EXPECT().PutItem(gomock.Any()).Return(nil, nil).AnyTimes()
 
 		// Arrange
-		videoUrl := "https://x.com/PicturesFoIder/status/1745002642089349387?s=20"
+		videoUrl := "https://twitter.com/gunsnrosesgirl3/status/1792166453849858364"
 
 		videoRepository := dynamodb.NewDynamodbVideoRepository(dynamodDBClientMock, "video")
 		settingsRepository := dynamodb.NewDynamoSettingsRepository(dynamodDBClientMock, "settings")
@@ -132,4 +140,28 @@ func TestVideoDownloaderUseCase_Execute_Integration(t *testing.T) {
 		assert.NotEmpty(t, video.Description)
 	})
 
+	t.Run("Should download video from reddit", func(t *testing.T) {
+
+		// Arrange
+		setup(t)
+
+		videoUrl := "https://www.reddit.com/r/2latinoforyou/comments/1cr82fl/pa%C3%ADses_con_m%C3%A1s_homicidios_del_mundo"
+
+		dynamodDBClientMock.EXPECT().PutItem(gomock.Any()).Return(nil, nil).AnyTimes()
+		dynamodDBClientMock.EXPECT().GetItem(gomock.Any()).Return(nil, nil).AnyTimes()
+		videoRepository := dynamodb.NewDynamodbVideoRepository(dynamodDBClientMock, "video")
+		redditDownloadRepo := reddit.NewRedditDownloaderRepository(realHttpClient)
+
+		redditVideoDownloaderUseCase := NewRedditVideoDownloaderUseCase(
+			videoRepository,
+			redditDownloadRepo,
+		)
+
+		video, err := redditVideoDownloaderUseCase.Execute(videoUrl)
+
+		// Assert
+		assert.Nil(t, err)
+		assert.NotNil(t, video)
+
+	})
 }

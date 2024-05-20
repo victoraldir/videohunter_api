@@ -26,7 +26,7 @@ func NewDynamodbVideoRepository(client DynamodDBClient, videoTableName string) d
 func (d dynamodbVideoRepository) SaveVideo(video *domain.Video) (*domain.Video, error) {
 
 	// We might get a collision here. I will stick with this for now.
-	video.IdDB = utils.GenerateShortID(video.OriginalVideoUrl)
+	video.IdDB = utils.Base64Encode(video.OriginalVideoUrl)
 
 	variants := make(map[string]*dynamodb.AttributeValue)
 
@@ -68,7 +68,7 @@ func (d dynamodbVideoRepository) SaveVideo(video *domain.Video) (*domain.Video, 
 				S: &text,
 			},
 			"thumbnailUrl": {
-				S: &media.MediaUrl,
+				S: &video.ThumbnailUrl,
 			},
 			"createdAt": {
 				S: &video.CreatedAt,
@@ -120,8 +120,9 @@ func (d dynamodbVideoRepository) GetVideo(videoId string) (*domain.Video, error)
 	video.Text = *output.Item["text"].S
 	video.CreatedAt = *output.Item["createdAt"].S
 	video.ExtendedEntities.Media = make([]domain.Media, 1)
-	video.ExtendedEntities.Media[0].MediaUrl = *output.Item["thumbnailUrl"].S
+	video.ExtendedEntities.Media[0].MediaUrl = *output.Item["originalVideoUrl"].S
 	video.ExtendedEntities.Media[0].VideoInfo.Variants = make([]domain.Variants, len(output.Item["variants"].M))
+	video.ThumbnailUrl = *output.Item["thumbnailUrl"].S
 
 	idx := 0
 	for _, variant := range output.Item["variants"].M {

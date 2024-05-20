@@ -15,3 +15,7 @@ type SettingsRepository interface {
 type DownloadRepository interface {
 	DownloadVideo(url string, authToken ...string) (videoDownload *domain.Video, currentToken *string, err error)
 }
+
+type DownloadHlsRepository interface {
+	DownloadHls(url string) (videoDownload *domain.Video, err error)
+}

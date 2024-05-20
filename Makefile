@@ -2,7 +2,7 @@ STACK_NAME ?= videohunter-api
 REGION := us-east-1
 APP_FOLDER := videohunter-api
 APP_LOCAL_NETWORK := myvideohunter-api
-FUNCTIONS := create-url get-url
+FUNCTIONS := create-url get-url download-video-hls
 # Get token from env variable
 PARAMETERS_OVERRIDE := LogLevel=INFO
 
@@ -33,6 +33,13 @@ tidy:
 
 clean:
 	@rm $(foreach function,${FUNCTIONS}, ${APP_FOLDER}/functions/${function}/bootstrap)
+	@rm -rf build
+
+build/layer/bin/ffmpeg: 
+	mkdir -p build/layer/bin
+	rm -rf build/ffmpeg*
+	cd build && curl https://johnvansickle.com/ffmpeg/releases/ffmpeg-release-arm64-static.tar.xz | tar x
+	mv build/ffmpeg*/ffmpeg build/ffmpeg*/ffprobe build/layer/bin
 
 delete:
 	@sam delete --stack-name ${STACK_NAME} --region ${REGION} 

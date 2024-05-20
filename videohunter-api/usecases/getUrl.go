@@ -8,7 +8,7 @@ import (
 	"github.com/victoraldir/myvideohunterapi/repositories"
 )
 
-//go:generate mockgen -destination=../usecases/mocks/mockVideoDownloaderUseCase.go -package=usecases github.com/victoraldir/myvideohunterapi/usecases VideoDownloaderUseCase
+//go:generate mockgen -destination=../usecases/mocks/mockGetUrlUseCase.go -package=usecases github.com/victoraldir/myvideohunterapi/usecases GetUrlUseCase
 type GetUrlUseCase interface {
 	Execute(videoId string) (*events.GetVideoResponse, error)
 }
@@ -26,6 +26,7 @@ func NewGetUrlUseCase(videoRepository repositories.VideoRepository) *getUrlUseCa
 func (v *getUrlUseCase) Execute(videoId string) (*events.GetVideoResponse, error) {
 
 	video, err := v.VideoRepository.GetVideo(videoId)
+	slog.Debug("getUrlUseCase excute() GetVideo():", "video", video)
 
 	if err != nil {
 		return nil, err
@@ -46,11 +47,9 @@ func videoToGetVideoResponse(video *domain.Video) *events.GetVideoResponse {
 	videoResponse.OriginalVideoUrl = video.OriginalVideoUrl
 	videoResponse.CreatedAt = video.CreatedAt
 	videoResponse.Variants = make([]events.VideoResponseVariant, len(video.ExtendedEntities.Media[0].VideoInfo.Variants))
+	videoResponse.ThumbnailUrl = video.ThumbnailUrl
 
 	for _, media := range video.ExtendedEntities.Media {
-
-		videoResponse.ThumbnailUrl = media.MediaUrl // TODO - this might lead to problems if there are more than one media. I have to check this.
-
 		for idx, variant := range media.VideoInfo.Variants {
 			videoResponse.Variants[idx].Bitrate = variant.Bitrate
 			videoResponse.Variants[idx].URL = variant.URL

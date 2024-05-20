@@ -1,33 +1,35 @@
 AWSTemplateFormatVersion: '2010-09-09'
 Transform: AWS::Serverless-2016-10-31
-Description: >
+Description: |
   Video Hunter API
-
   API for Video Hunter
 
 Globals:
   Function:
-    Timeout: 5
-    MemorySize: 128
-    Architectures: ["arm64"]
+    Timeout: 30
+    MemorySize: 2048
+    Architectures:
+      - arm64
     Handler: bootstrap
     Runtime: provided.al2
     Environment:
-        Variables:
-          VIDEO_TABLE: !Ref VideoTableName
-          SETTINGS_TABLE: !Ref SettingsTableName
-          LOG_LEVEL: !Ref LogLevel
-          REGION: !Ref Region
-          ENVIRONMENT: !Ref Environment
-          BOT_TOKEN: !Ref BotToken
+      Variables:
+        VIDEO_TABLE: !Ref VideoTableName
+        SETTINGS_TABLE: !Ref SettingsTableName
+        LOG_LEVEL: !Ref LogLevel
+        REGION: !Ref Region
+        ENVIRONMENT: !Ref Environment
+        BOT_TOKEN: !Ref BotToken
     Tracing: Active
   Api:
     TracingEnabled: true
+    BinaryMediaTypes:
+      - "*/*"
     Cors:
-      AllowMethods: "'GET,POST,OPTIONS'"
-      AllowHeaders: "'content-type'"
-      AllowOrigin: "'*'"
-      AllowCredentials: "'*'"
+      AllowMethods: '''GET,POST,OPTIONS'''
+      AllowHeaders: '''content-type'''
+      AllowOrigin: '''*'''
+      AllowCredentials: '''*'''
 
 Parameters:
   Environment:
@@ -81,7 +83,7 @@ Resources:
     Metadata:
       BuildMethod: go1.x
     Properties:
-      CodeUri: videohunter-api//functions/create-url
+      CodeUri: videohunter-api/functions/create-url
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref VideoTable
@@ -94,7 +96,34 @@ Resources:
             RestApiId: !Ref GatewayAPI
             Path: /url
             Method: POST
-  
+
+  DownloadHlsVideoFunction:
+    Type: AWS::Serverless::Function
+    Metadata:
+      BuildMethod: go1.x
+    Properties:
+      CodeUri: videohunter-api/functions/download-video-hls
+      Layers:
+        - !Ref LambdaLayer
+      Events:
+        CatchAll:
+          Type: Api
+          Properties:
+            RestApiId: !Ref GatewayAPI
+            Path: /download/{url}
+            Method: GET
+
+  LambdaLayer:
+    Type: AWS::Serverless::LayerVersion
+    Properties:
+      LayerName: ffmpeg-lambda-layer
+      Description: FFmpeg for AWS Lambda
+      ContentUri: build/layer
+      CompatibleRuntimes:
+        - go1.x
+      LicenseInfo: GPL-3.0-or-later
+      RetentionPolicy: Retain
+
   GetUrlFunction:
     Type: AWS::Serverless::Function
     Metadata:
@@ -111,7 +140,7 @@ Resources:
             RestApiId: !Ref GatewayAPI
             Path: /url/{id}
             Method: GET
-  
+
   TelegramWebhookFunction:
     Type: AWS::Serverless::Function
     Properties:
@@ -136,7 +165,7 @@ Resources:
         ReadCapacityUnits: 1
         WriteCapacityUnits: 1
       TableName: video
-  
+
   SettingsTable:
     Type: AWS::Serverless::SimpleTable
     Properties:
@@ -147,7 +176,7 @@ Resources:
         ReadCapacityUnits: 1
         WriteCapacityUnits: 1
       TableName: settings
-  
+
   HostedZone:
     Type: AWS::Route53::HostedZone
     Properties:
@@ -157,12 +186,12 @@ Resources:
       HostedZoneTags:
         - Key: Name
           Value: !Ref DomainName
-  
+
   WebsiteRecordSet:
     Type: AWS::Route53::RecordSet
     Properties:
       HostedZoneId: !Ref HostedZone
-      Name: !Sub "www.${DomainName}"
+      Name: !Sub www.${DomainName}
       Type: CNAME
       TTL: '300'
       ResourceRecords:
@@ -176,11 +205,11 @@ Resources:
     Properties:
       DomainName: !Ref DomainName
       DomainValidationOptions:
-        - DomainName: !Sub "${DomainName}"
+        - DomainName: !Sub ${DomainName}
           HostedZoneId: !Ref HostedZone
       ValidationMethod: DNS
       SubjectAlternativeNames:
-        - !Sub "*.${DomainName}"
+        - !Sub '*.${DomainName}'
 
   CloudFrontDistribution:
     Type: AWS::CloudFront::Distribution
@@ -190,12 +219,12 @@ Resources:
         DefaultRootObject: index.html
         Origins:
           - DomainName: !GetAtt WebsiteBucket.DomainName
-            Id: !Sub "${AWS::StackName}-s3-origin"
+            Id: !Sub ${AWS::StackName}-s3-origin
             S3OriginConfig:
               OriginAccessIdentity: ''
             OriginAccessControlId: !GetAtt CloudFrontOriginAccessControl.Id
-          - DomainName: !Sub "${GatewayAPI}.execute-api.${AWS::Region}.amazonaws.com"
-            Id: !Sub "${AWS::StackName}-api-videohunter-gtw-origin"
+          - DomainName: !Sub ${GatewayAPI}.execute-api.${AWS::Region}.amazonaws.com
+            Id: !Sub ${AWS::StackName}-api-videohunter-gtw-origin
             CustomOriginConfig:
               OriginProtocolPolicy: https-only
         DefaultCacheBehavior:
@@ -203,13 +232,13 @@ Resources:
             - GET
             - HEAD
             - OPTIONS
-          TargetOriginId: !Sub "${AWS::StackName}-s3-origin"
+          TargetOriginId: !Sub ${AWS::StackName}-s3-origin
           CachePolicyId: 658327ea-f89d-4fab-a63d-7e88639e58f6 # CachingOptimized
           OriginRequestPolicyId: 88a5eaf4-2fd4-4709-b370-b4c650ea3fcf # CORS-S3Origin
           ViewerProtocolPolicy: redirect-to-https
         CacheBehaviors:
           - PathPattern: /prod/*
-            TargetOriginId: !Sub "${AWS::StackName}-api-videohunter-gtw-origin"
+            TargetOriginId: !Sub ${AWS::StackName}-api-videohunter-gtw-origin
             ViewerProtocolPolicy: redirect-to-https
             ForwardedValues:
               QueryString: true
@@ -226,14 +255,14 @@ Resources:
               - PATCH
         PriceClass: PriceClass_All
         Aliases:
-          - !Sub "*.${DomainName}"
+          - !Sub '*.${DomainName}'
         ViewerCertificate:
           AcmCertificateArn: !Ref Certificate
           SslSupportMethod: sni-only
 
   CloudFrontOriginAccessControl:
     Type: AWS::CloudFront::OriginAccessControl
-    Properties: 
+    Properties:
       OriginAccessControlConfig:
         Description: Default Origin Access Control
         Name: !Ref AWS::StackName
@@ -247,12 +276,12 @@ Resources:
     DeletionPolicy: Delete
     UpdateReplacePolicy: Retain
     Properties:
-      BucketName: !Sub "${AWS::StackName}-website-bucket"
+      BucketName: !Sub ${AWS::StackName}-website-bucket
       BucketEncryption:
-        ServerSideEncryptionConfiguration: 
-          - ServerSideEncryptionByDefault: 
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
               SSEAlgorithm: AES256
-      PublicAccessBlockConfiguration: 
+      PublicAccessBlockConfiguration:
         BlockPublicAcls: true
         BlockPublicPolicy: true
         IgnorePublicAcls: true
@@ -265,41 +294,39 @@ Resources:
       Bucket: !Ref WebsiteBucket
       PolicyDocument:
         Statement:
-        - Action: s3:GetObject
-          Effect: Allow
-          Resource: !Sub ${WebsiteBucket.Arn}/*
-          Principal:
-            Service: cloudfront.amazonaws.com
-          Condition:
-            StringEquals:
-              AWS:SourceArn: !Sub arn:aws:cloudfront::${AWS::AccountId}:distribution/${CloudFrontDistribution}
-        - Effect: Deny
-          Principal: '*'
-          Action: 's3:*'
-          Resource: 
-            - !Sub ${WebsiteBucket.Arn}/*
-            - !GetAtt WebsiteBucket.Arn
-          Condition:
-            Bool: 
-              aws:SecureTransport: false
+          - Action: s3:GetObject
+            Effect: Allow
+            Resource: !Sub ${WebsiteBucket.Arn}/*
+            Principal:
+              Service: cloudfront.amazonaws.com
+            Condition:
+              StringEquals:
+                AWS:SourceArn: !Sub arn:aws:cloudfront::${AWS::AccountId}:distribution/${CloudFrontDistribution}
+          - Effect: Deny
+            Principal: '*'
+            Action: s3:*
+            Resource:
+              - !Sub ${WebsiteBucket.Arn}/*
+              - !GetAtt WebsiteBucket.Arn
+            Condition:
+              Bool:
+                aws:SecureTransport: false
 
   ApplicationResourceGroup:
     Type: AWS::ResourceGroups::Group
     Properties:
-      Name:
-        Fn::Sub: ApplicationInsights-SAM-${AWS::StackName}
+      Name: !Sub ApplicationInsights-SAM-${AWS::StackName}
       ResourceQuery:
         Type: CLOUDFORMATION_STACK_1_0
   ApplicationInsightsMonitoring:
     Type: AWS::ApplicationInsights::Application
     Properties:
-      ResourceGroupName:
-        Ref: ApplicationResourceGroup
+      ResourceGroupName: !Ref ApplicationResourceGroup
       AutoConfigurationEnabled: 'true'
 Outputs:
   VideoHunterAPI:
     Description: API Gateway endpoint URL for Prod stage for Create URL function.
-    Value: !Sub "https://${GatewayAPI}.execute-api.${AWS::Region}.amazonaws.com/${Environment}/url"
+    Value: !Sub https://${GatewayAPI}.execute-api.${AWS::Region}.amazonaws.com/${Environment}/url
   CreateUrlFunction:
     Description: Create URL Lambda Function ARN
     Value: !GetAtt CreateUrlFunction.Arn

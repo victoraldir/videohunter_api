@@ -36,6 +36,18 @@
     <script>
         function downloadVideo(videoUrl) {
             let oReq = new XMLHttpRequest();
+
+            isRedditVideo = document.getElementById('IsRedditVideo').value;
+
+            // Base64 encode the video
+            videoUrl = btoa(videoUrl);
+
+            if (isRedditVideo == 'true') {
+                // Start the download
+                window.location.href = '/download/' + videoUrl;
+                return;
+            }
+
             oReq.responseType = 'blob';
             oReq.onload = function (e) {
                 var blob = e.currentTarget.response;
@@ -100,7 +112,16 @@
     <div class="container-fluid p-4 bg-secondary text-black text-center">
         <div class="col d-flex justify-content-center">
             <div class="card  p-0 col-sm-7 border-0 rounded-1 shadow mx-auto mb-3">
+
+                {{ if .Video.IsRedditVideo }}
+                <video style="max-height:250px; max-width: fit-content; align-self: center; margin-top: 10px;" autoplay>
+                    <source src="{{ .Video.ThumbnailUrl }}" type="video/mp4">
+                    Your browser does not support the video tag.
+                </video>
+                {{ else }}
                 <img src="{{ .Video.ThumbnailUrl }}" class="card-img-top" style="max-height:250px; max-width: fit-content; align-self: center; margin-top: 10px;">
+                {{ end }}
+                <input type="hidden" id="IsRedditVideo" value="{{ .Video.IsRedditVideo }}">
                 <div class="card-body">
                     <a href="{{ .Video.OriginalVideoUrl }}" class="card-title" target="_blank">Original URL</a>
                   <p class="card-text">{{ .Video.Text }}</p>

@@ -5,3 +5,4 @@ env-vars.json
 bin
 .DS_Store
 coverage.txt
+build

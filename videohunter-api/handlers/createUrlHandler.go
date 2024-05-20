@@ -2,15 +2,17 @@ package handlers
 
 import (
 	"encoding/json"
+	"log"
 
-	"github.com/aws/aws-lambda-go/events"
+	events_aws "github.com/aws/aws-lambda-go/events"
 	"github.com/victoraldir/myvideohunterapi/usecases"
 	"github.com/victoraldir/myvideohunterapi/utils"
 	"golang.org/x/exp/slog"
 )
 
 type CreateUrlHandler struct {
-	VideoDownloaderUseCase usecases.VideoDownloaderUseCase
+	VideoDownloaderUseCase  usecases.VideoDownloaderUseCase
+	RedditDownloaderUseCase usecases.VideoDownloaderUseCase
 }
 
 type VideoRequest struct {
@@ -23,14 +25,18 @@ func NewCreateUrlHandler(videoDownloaderUseCase usecases.VideoDownloaderUseCase)
 	}
 }
 
-func (h *CreateUrlHandler) Handle(request events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
+func (h *CreateUrlHandler) Handle(request events_aws.APIGatewayProxyRequest) (events_aws.APIGatewayProxyResponse, error) {
 	videoRequest := &VideoRequest{}
 
-	err := json.Unmarshal([]byte(request.Body), videoRequest)
+	// Decode from base64
+	bodyDecoded, _ := utils.Base64Decode(request.Body)
+
+	log.Println("Request: ", bodyDecoded)
+	err := json.Unmarshal([]byte(bodyDecoded), videoRequest)
 
 	if err != nil {
 		slog.Error("Error unmarshalling request: ", err)
-		return events.APIGatewayProxyResponse{
+		return events_aws.APIGatewayProxyResponse{
 			Body:       "Invalid Request",
 			StatusCode: 400,
 		}, nil
@@ -38,19 +44,27 @@ func (h *CreateUrlHandler) Handle(request events.APIGatewayProxyRequest) (events
 
 	slog.Debug("Downloading video from: ", videoRequest)
 
-	if !utils.IsTwitterUrl(videoRequest.VideoUrl) {
+	if !utils.IsTwitterUrl(videoRequest.VideoUrl) && !utils.IsRedditUrl(videoRequest.VideoUrl) {
 		slog.Error("Invalid video_url: ", videoRequest.VideoUrl)
-		return events.APIGatewayProxyResponse{
+		return events_aws.APIGatewayProxyResponse{
 			Body:       "Invalid video_url",
 			StatusCode: 400,
 		}, nil
 	}
 
-	videoResponse, err := h.VideoDownloaderUseCase.Execute(videoRequest.VideoUrl)
+	var videoDownloaderUseCase usecases.VideoDownloaderUseCase
+
+	if utils.IsRedditUrl(videoRequest.VideoUrl) {
+		videoDownloaderUseCase = h.RedditDownloaderUseCase
+	} else {
+		videoDownloaderUseCase = h.VideoDownloaderUseCase
+	}
+
+	videoResponse, err := videoDownloaderUseCase.Execute(videoRequest.VideoUrl)
 
 	if err != nil {
 		slog.Error("Error downloading video: ", err)
-		return events.APIGatewayProxyResponse{
+		return events_aws.APIGatewayProxyResponse{
 			Body:       "Error downloading video",
 			StatusCode: 500,
 		}, nil
@@ -60,7 +74,7 @@ func (h *CreateUrlHandler) Handle(request events.APIGatewayProxyRequest) (events
 
 	if err != nil {
 		slog.Error("Error marshalling response: ", err)
-		return events.APIGatewayProxyResponse{
+		return events_aws.APIGatewayProxyResponse{
 			Body:       "Error marshalling response",
 			StatusCode: 500,
 		}, nil
@@ -72,7 +86,7 @@ func (h *CreateUrlHandler) Handle(request events.APIGatewayProxyRequest) (events
 		"Access-Control-Allow-Origin": "*",
 	}
 
-	return events.APIGatewayProxyResponse{
+	return events_aws.APIGatewayProxyResponse{
 		Body:       string(videoResponseJson),
 		StatusCode: 200,
 		Headers:    headers,
