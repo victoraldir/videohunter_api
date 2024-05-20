@@ -28,10 +28,12 @@ func NewCreateUrlHandler(videoDownloaderUseCase usecases.VideoDownloaderUseCase)
 func (h *CreateUrlHandler) Handle(request events_aws.APIGatewayProxyRequest) (events_aws.APIGatewayProxyResponse, error) {
 	videoRequest := &VideoRequest{}
 
+	slog.Debug("Request: ", request)
+
 	// Decode from base64
 	bodyDecoded, _ := utils.Base64Decode(request.Body)
 
-	log.Println("Request: ", bodyDecoded)
+	log.Println("Body decoded: ", bodyDecoded)
 	err := json.Unmarshal([]byte(bodyDecoded), videoRequest)
 
 	if err != nil {
