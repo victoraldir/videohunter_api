@@ -37,8 +37,6 @@ jobs:
       
       - name: Deploy
         run : | 
-          sudo snap remove curl
-          sudo apt install -y curl
           make deploy
         env:
             AWS_ACCESS_KEY_ID: "${{ secrets.AWS_ACCESS_KEY_ID }}"
