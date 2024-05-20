@@ -6,6 +6,7 @@ on:
       - videohunter-bot/**
       - samconfig.toml
       - template.yaml
+      - Makefile
     branches: [ main ]
 
 jobs:
