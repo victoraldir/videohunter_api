@@ -109,6 +109,8 @@ func (t *twitterDownloaderRepository) DownloadVideo(url string, authToken ...str
 		}
 	}
 
+	video.ThumbnailUrl = video.ExtendedEntities.Media[0].MediaUrl
+
 	return &video, currentToken, nil
 }
 

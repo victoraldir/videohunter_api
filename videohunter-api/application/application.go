@@ -9,6 +9,8 @@ import (
 	"github.com/aws/aws-sdk-go/aws/session"
 	dynamodb_aws "github.com/aws/aws-sdk-go/service/dynamodb"
 	"github.com/victoraldir/myvideohunterapi/adapters/dynamodb"
+	"github.com/victoraldir/myvideohunterapi/adapters/ffmpeg"
+	"github.com/victoraldir/myvideohunterapi/adapters/reddit"
 	"github.com/victoraldir/myvideohunterapi/adapters/twitter"
 
 	config_api "github.com/victoraldir/myvideohunterapi/config"
@@ -17,8 +19,9 @@ import (
 )
 
 type LambdaAPIGatewayApplication struct {
-	CreateUrlHandler *handlers.CreateUrlHandler
-	GetUrlHandler    *handlers.GetUrlHandler
+	CreateUrlHandler        *handlers.CreateUrlHandler
+	GetUrlHandler           *handlers.GetUrlHandler
+	DownloadVideoHlsHandler *handlers.DownloadVideoHlsHandler
 }
 
 func NewAPIGatewayHandler(config config_api.Configuration) *LambdaAPIGatewayApplication {
@@ -38,6 +41,8 @@ func NewAPIGatewayHandler(config config_api.Configuration) *LambdaAPIGatewayAppl
 	videoRepository := dynamodb.NewDynamodbVideoRepository(client, config.VideoTableName)
 	settingsRepository := dynamodb.NewDynamoSettingsRepository(client, config.SettingsTableName)
 	downloadeRepository := twitter.NewTwitterDownloaderRepository(httpClient)
+	redditDownloaderRepository := reddit.NewRedditDownloaderRepository(httpClient)
+	downloadVideoHlsRepository := ffmpeg.NewDownloaderHlsRepository()
 
 	// Use Cases
 	videoDownloaderUseCase := usecases.NewVideoDownloaderUseCase(
@@ -46,18 +51,29 @@ func NewAPIGatewayHandler(config config_api.Configuration) *LambdaAPIGatewayAppl
 		settingsRepository,
 	)
 
+	redditDownloaderUseCase := usecases.NewRedditVideoDownloaderUseCase(videoRepository, redditDownloaderRepository)
+
+	downloadVideoHlsUseCase := usecases.NewDownloadVideoHlsUseCase(
+		videoRepository,
+		downloadVideoHlsRepository,
+	)
+
 	// Handlers
 	createUrlHandler := &handlers.CreateUrlHandler{
-		VideoDownloaderUseCase: videoDownloaderUseCase,
+		VideoDownloaderUseCase:  videoDownloaderUseCase,
+		RedditDownloaderUseCase: redditDownloaderUseCase,
 	}
 
-	getUrlHndler := &handlers.GetUrlHandler{
+	getUrlHandler := &handlers.GetUrlHandler{
 		GerUrlUseCase: usecases.NewGetUrlUseCase(videoRepository),
 	}
 
+	downloadVideoHlsHandler := handlers.NewDownloadVideoHlsHandler(downloadVideoHlsUseCase)
+
 	return &LambdaAPIGatewayApplication{
-		CreateUrlHandler: createUrlHandler,
-		GetUrlHandler:    getUrlHndler,
+		CreateUrlHandler:        createUrlHandler,
+		GetUrlHandler:           getUrlHandler,
+		DownloadVideoHlsHandler: downloadVideoHlsHandler,
 	}
 
 }

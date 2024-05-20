@@ -51,7 +51,7 @@ func TestHandler(t *testing.T) {
 			// mock a request with a valid video_url
 			name: "Valid video_url",
 			request: events.APIGatewayProxyRequest{
-				Body: "{\"video_url\":\"https://twitter.com/victoraldir/status/1746348632146690148\"}",
+				Body: "eyJ2aWRlb191cmwiOiJodHRwczovL3R3aXR0ZXIuY29tL3ZpY3RvcmFsZGlyL3N0YXR1cy8xNzQ2MzQ4NjMyMTQ2NjkwMTQ4In0=",
 			},
 			expectedBody:  "{\"id\":\"123\",\"thumbnail_url\":\"\",\"description\":\"\"}",
 			expectedError: nil,
@@ -69,7 +69,7 @@ func TestHandler(t *testing.T) {
 			// mock a non-twitter url
 			name: "Empty body",
 			request: events.APIGatewayProxyRequest{
-				Body: "{\"video_url\":\"https://reddit.com/elonmusk/status/1273792507348928512\"}",
+				Body: "eyJ2aWRlb191cmwiOiJodHRwczovL2JsYWJsYS5jb20vZWxvbm11c2svc3RhdHVzLzEyNzM3OTI1MDczNDg5Mjg1MTIifQ==",
 			},
 			expectedBody:  "Invalid video_url",
 			expectedError: nil,

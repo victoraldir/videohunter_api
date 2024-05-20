@@ -56,3 +56,21 @@ func TestVideoResponseVariant_GetVidResFromUrl_WithoutAvc(t *testing.T) {
 	// Assert
 	assert.Equal(t, "320x568", vidRes, "they should be equal")
 }
+
+func TestVideoResponseVariant_GetVidResFromUrl_RedditUrl(t *testing.T) {
+
+	// Arrange
+	url := "https://v.redd.it/b4cikpfnw80d1/HLSPlaylist.m3u8?a=1718309730%2CNDI2YjVhYTA4NTUxZmZjNjFmNjA2NDg2Y2QyOTI5MzVhZmViMmJjMTIwOWYwM2M4MGQyZjUzNDgzMDQyODIwZg%3D%3D&amp;v=1&amp;f=sd"
+	videoResponseVariant := VideoResponseVariant{
+		URL:         url,
+		Bitrate:     832000,
+		ContentType: "test",
+	}
+
+	// Act
+	vidRes := videoResponseVariant.GetVidResFromUrl()
+
+	// Assert
+	assert.Equal(t, "full quality", vidRes, "they should be equal")
+
+}

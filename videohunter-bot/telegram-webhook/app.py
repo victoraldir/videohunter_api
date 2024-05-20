@@ -3,6 +3,7 @@ import re
 import json
 import urllib.request
 import urllib.error
+import base64
 
 headers = {"Content-Type": "application/json"}
 
@@ -48,15 +49,21 @@ def send_message(message:str, chat_id:str):
 
 def lambda_handler(event, context):
 
+    print('######')
+    print("event: ", event)
+    print('######')
 
     try:
         url = "https://myvideohunter.com/prod/url"
 
-        body = json.loads(event['body'])
+        # Decode base64 body
+        bodyDecoded = base64.b64decode(event['body'])
 
         print('######')
-        print(body)
+        print("bodyDecoded: ", bodyDecoded)
         print('######')
+
+        body = json.loads(bodyDecoded)
         
         try:
             if not body or not body['message']:
@@ -125,7 +132,7 @@ def lambda_handler(event, context):
         print('######')
         print("Error: ", e)
         print('######')
-        send_message("An error occurred", telegram_chat_id)
+        # send_message("An error occurred", telegram_chat_id)
 
     # Return a 200 status code to the Telegram API anyways 
     return {

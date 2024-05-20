@@ -23,6 +23,7 @@ type Video struct {
 	ExtendedEntities ExtendedEntities `json:"extended_entities"`
 	Text             string           `json:"full_text"`
 	QuotedStatus     QuotedStatus     `json:"quoted_status"`
+	Path             string           `json:"path"`
 }
 
 type QuotedStatus struct {
