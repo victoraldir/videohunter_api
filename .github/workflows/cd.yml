@@ -1,12 +1,12 @@
 name: CD
 on:
   push:
-    paths:
-      - videohunter-api/**
-      - videohunter-bot/**
-      - samconfig.toml
-      - template.yaml
-      - Makefile
+    # paths:
+    #   - videohunter-api/**
+    #   - videohunter-bot/**
+    #   - samconfig.toml
+    #   - template.yaml
+    #   - Makefile
     branches: [ main ]
 
 jobs:
