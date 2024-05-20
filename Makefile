@@ -21,7 +21,7 @@ build:
 build-%:
 	cd ${APP_FOLDER}/functions/$* && GOOS=linux GOARCH=arm64 CGO_ENABLED=0 ${GO} build -o bootstrap
 
-build-sam: clean build build/layer/bin/ffmpeg
+build-sam: build build/layer/bin/ffmpeg
 	@sam build
 
 test:
