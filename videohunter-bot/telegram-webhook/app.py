@@ -114,7 +114,7 @@ def lambda_handler(event, context):
             print('Error message: ', e.read())
             print('######')
             return {
-                "statusCode": e.code,
+                "statusCode": 200,
                 "body": "HTTP Error occurred",
             }
 
