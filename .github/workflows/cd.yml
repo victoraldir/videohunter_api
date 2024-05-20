@@ -36,7 +36,10 @@ jobs:
           make test
       
       - name: Deploy
-        run : make deploy
+        run : | 
+          snap remove curl
+          apt install -y curl
+          make deploy
         env:
             AWS_ACCESS_KEY_ID: "${{ secrets.AWS_ACCESS_KEY_ID }}"
             AWS_SECRET_ACCESS_KEY: "${{ secrets.AWS_SECRET_ACCESS_KEY }}"
