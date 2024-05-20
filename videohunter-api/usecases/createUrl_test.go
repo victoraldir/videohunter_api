@@ -1,20 +1,26 @@
 package usecases
 
-import (
-	"testing"
+// import (
+// 	"net/http"
+// 	"testing"
 
-	dynamodb_mock "github.com/victoraldir/myvideohunterapi/adapters/dynamodb/mocks"
-	"go.uber.org/mock/gomock"
-)
+// 	"github.com/stretchr/testify/assert"
+// 	"github.com/victoraldir/myvideohunterapi/adapters/dynamodb"
+// 	dynamodb_mock "github.com/victoraldir/myvideohunterapi/adapters/dynamodb/mocks"
+// 	"github.com/victoraldir/myvideohunterapi/adapters/reddit"
+// 	"github.com/victoraldir/myvideohunterapi/adapters/twitter"
+// 	"github.com/victoraldir/myvideohunterapi/utils"
+// 	"go.uber.org/mock/gomock"
+// )
 
-var dynamodDBClientMock *dynamodb_mock.MockDynamodDBClient
+// var dynamodDBClientMock *dynamodb_mock.MockDynamodDBClient
 
-func setup(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
+// func setup(t *testing.T) {
+// 	ctrl := gomock.NewController(t)
+// 	defer ctrl.Finish()
 
-	dynamodDBClientMock = dynamodb_mock.NewMockDynamodDBClient(ctrl)
-}
+// 	dynamodDBClientMock = dynamodb_mock.NewMockDynamodDBClient(ctrl)
+// }
 
 // func TestVideoDownloaderUseCase_Execute_Integration(t *testing.T) {
 
