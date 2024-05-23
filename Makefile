@@ -4,7 +4,7 @@ APP_FOLDER := videohunter-api
 APP_LOCAL_NETWORK := myvideohunter-api
 FUNCTIONS := create-url get-url download-video-hls
 # Get token from env variable
-PARAMETERS_OVERRIDE := LogLevel=DEBUG
+PARAMETERS_OVERRIDE := LogLevel=INFO
 
 # To try different version of Go
 GO := go
