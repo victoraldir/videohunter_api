@@ -39,10 +39,10 @@
 
             isRedditVideo = document.getElementById('IsRedditVideo').value;
 
-            // Base64 encode the video
-            videoUrl = btoa(videoUrl);
-
             if (isRedditVideo == 'true') {
+                // Base64 encode the video
+                videoUrl = btoa(videoUrl);
+
                 // Start the download
                 window.location.href = '/download/' + videoUrl;
                 return;
