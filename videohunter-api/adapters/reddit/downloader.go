@@ -3,6 +3,7 @@ package reddit
 import (
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
 	"time"
 
@@ -58,16 +59,21 @@ func (r *redditDownloaderRepository) DownloadVideo(url string, authToken ...stri
 	req, err := http.NewRequest("GET", urlWithExtension, nil)
 
 	if err != nil {
+		log.Println("Error creating request", "error", err)
 		return nil, nil, err
 	}
 
 	resp, err := r.client.Do(req)
 
 	if err != nil {
+		log.Println("Error making request", "error", err)
 		return nil, nil, err
 	}
 
 	defer resp.Body.Close()
+
+	log.Println("Response status", "status", resp.Status)
+	log.Println("Response headers", "headers", resp.Header)
 
 	var comments []Comment
 
