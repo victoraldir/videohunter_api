@@ -1,6 +1,7 @@
 package usecases
 
 import (
+	"log"
 	"log/slog"
 
 	"github.com/victoraldir/myvideohunterapi/domain"
@@ -124,9 +125,9 @@ func (v *videoDownloaderUseCase) Execute(url string) (*events.CreateVideoRespons
 
 func (v *redditVideoDownloaderUseCase) Execute(url string) (*events.CreateVideoResponse, error) {
 
-	slog.Debug("redditVideoDownloaderUseCase excute() url:", "url", url)
+	log.Println("redditVideoDownloaderUseCase excute() url:", "url", url)
 	videoId := utils.Base64Encode(url)
-	slog.Debug("redditVideoDownloaderUseCase excute() videoId:", "videoId", videoId)
+	log.Println("redditVideoDownloaderUseCase excute() videoId:", "videoId", videoId)
 
 	video, err := v.VideoRepository.GetVideo(videoId)
 
@@ -139,7 +140,7 @@ func (v *redditVideoDownloaderUseCase) Execute(url string) (*events.CreateVideoR
 	}
 
 	newVideo, _, err := v.RedditDownloadRepository.DownloadVideo(url)
-	slog.Debug("redditVideoDownloaderUseCase excute() DownloadVideo():", "video", newVideo)
+	log.Println("redditVideoDownloaderUseCase excute() DownloadVideo():", "video", newVideo)
 
 	if err != nil {
 		return nil, err

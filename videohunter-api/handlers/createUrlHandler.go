@@ -28,7 +28,7 @@ func NewCreateUrlHandler(videoDownloaderUseCase usecases.VideoDownloaderUseCase)
 func (h *CreateUrlHandler) Handle(request events_aws.APIGatewayProxyRequest) (events_aws.APIGatewayProxyResponse, error) {
 	videoRequest := &VideoRequest{}
 
-	slog.Debug("Request: ", request)
+	log.Println("Request: ", request)
 
 	// Decode from base64
 	bodyDecoded, _ := utils.Base64Decode(request.Body)
