@@ -5,6 +5,8 @@
         "ENVIRONMENT": "local",
         "LOG_LEVEL": "DEBUG",
         "REGION": "us-east-1",
-        "BOT_TOKEN": "dummybottoken"
+        "BOT_TOKEN": "dummybottoken",
+        "REDDIT_CLIENT_ID": "dummyredditclientid",
+        "REDDIT_CLIENT_SECRET": "dummy"
     }
 }

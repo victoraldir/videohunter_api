@@ -20,6 +20,8 @@ Globals:
         REGION: !Ref Region
         ENVIRONMENT: !Ref Environment
         BOT_TOKEN: !Ref BotToken
+        REDDIT_CLIENT_ID: !Ref RedditClientId
+        REDDIT_CLIENT_SECRET: !Ref Reddit
     Tracing: Active
   Api:
     TracingEnabled: true
@@ -71,6 +73,12 @@ Parameters:
   BotToken:
     Type: String
     Description: Telegram bot token
+  RedditClientId:
+    Type: String
+    Description: Reddit client ID
+  RedditClientSecret:
+    Type: String
+    Description: Reddit client secret
 
 Resources:
   GatewayAPI:
