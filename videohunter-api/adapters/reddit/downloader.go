@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"os"
 	"time"
 
 	"github.com/victoraldir/myvideohunterapi/adapters/httpclient"
@@ -54,9 +55,21 @@ func NewRedditDownloaderRepository(client httpclient.HttpClient) *redditDownload
 
 func (r *redditDownloaderRepository) DownloadVideo(url string, authToken ...string) (videoDownload *domain.Video, currentToken *string, err error) {
 
+	if url[len(url)-1] == '/' {
+		url = url[:len(url)-1]
+	}
 	urlWithExtension := url + ".json"
 
 	req, err := http.NewRequest("GET", urlWithExtension, nil)
+
+	basicAuth, err := r.GetAuthToken()
+
+	if err != nil {
+		log.Println("Error getting auth token", "error", err)
+		return nil, nil, err
+	}
+
+	req.Header.Set("Authorization", basicAuth)
 
 	if err != nil {
 		log.Println("Error creating request", "error", err)
@@ -122,4 +135,16 @@ func (r *redditDownloaderRepository) DownloadVideo(url string, authToken ...stri
 	}
 
 	return &video, nil, nil
+}
+
+func (r *redditDownloaderRepository) GetAuthToken() (authToken string, err error) {
+
+	redditClientId := os.Getenv("REDDIT_CLIENT_ID")
+	redditClientSecret := os.Getenv("REDDIT_CLIENT_SECRET")
+
+	if redditClientId == "" || redditClientSecret == "" {
+		return "", fmt.Errorf("REDDIT_CLIENT_ID or REDDIT_CLIENT_SECRET not found")
+	}
+
+	return "Basic " + redditClientId + ":" + redditClientSecret, nil
 }
