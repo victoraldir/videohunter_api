@@ -6,6 +6,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/victoraldir/myvideohunterapi/adapters/httpclient"
@@ -54,6 +55,10 @@ func NewRedditDownloaderRepository(client httpclient.HttpClient) *redditDownload
 }
 
 func (r *redditDownloaderRepository) DownloadVideo(url string, authToken ...string) (videoDownload *domain.Video, currentToken *string, err error) {
+
+	splitUrlQuery := strings.Split(url, "?")
+
+	url = splitUrlQuery[0]
 
 	if url[len(url)-1] == '/' {
 		url = url[:len(url)-1]
