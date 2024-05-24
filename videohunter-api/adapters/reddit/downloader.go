@@ -56,16 +56,14 @@ func NewRedditDownloaderRepository(client httpclient.HttpClient) *redditDownload
 
 func (r *redditDownloaderRepository) DownloadVideo(url string, authToken ...string) (videoDownload *domain.Video, currentToken *string, err error) {
 
-	splitUrlQuery := strings.Split(url, "?")
+	url, err = r.GetJsonUrl(url)
 
-	url = splitUrlQuery[0]
-
-	if url[len(url)-1] == '/' {
-		url = url[:len(url)-1]
+	if err != nil {
+		log.Println("Error getting json url", "error", err)
+		return nil, nil, err
 	}
-	urlWithExtension := url + ".json"
 
-	req, err := http.NewRequest("GET", urlWithExtension, nil)
+	req, err := http.NewRequest("GET", url, nil)
 
 	basicAuth, err := r.GetAuthToken()
 
@@ -152,4 +150,44 @@ func (r *redditDownloaderRepository) GetAuthToken() (authToken string, err error
 	}
 
 	return "Basic " + redditClientId + ":" + redditClientSecret, nil
+}
+
+func (r *redditDownloaderRepository) GetJsonUrl(url string) (string, error) {
+
+	splitUrl := strings.Split(url, "/")
+
+	// Check if url is short url
+	if splitUrl[5] == "s" {
+		// Get the Location header. We need to configure the client to not follow redirects
+		client := &http.Client{
+			CheckRedirect: func(req *http.Request, via []*http.Request) error {
+				return http.ErrUseLastResponse
+			},
+		}
+
+		resp, err := client.Get(url)
+
+		if err != nil {
+			return "", err
+		}
+
+		defer resp.Body.Close()
+
+		url = resp.Header.Get("Location")
+
+		if url == "" {
+			return "", fmt.Errorf("error getting location header")
+		}
+	}
+
+	splitUrlQuery := strings.Split(url, "?")
+
+	url = splitUrlQuery[0]
+
+	if url[len(url)-1] == '/' {
+		url = url[:len(url)-1]
+	}
+	urlWithExtension := url + ".json"
+
+	return urlWithExtension, nil
 }

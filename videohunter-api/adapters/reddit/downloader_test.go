@@ -7,7 +7,7 @@ import (
 func TestRedditDownloaderRepository_DownloadVideo(t *testing.T) {
 	// t.Run("Should download video from reddit", func(t *testing.T) {
 	// 	// Arrange
-	// 	url := "https://www.reddit.com/r/Unexpected/comments/1cznts8/learned_his_lesson"
+	// 	url := "https://www.reddit.com/r/2latinoforyou/s/lngpJlIFYP"
 	// 	httpClient := &http.Client{}
 	// 	repo := NewRedditDownloaderRepository(httpClient)
 
