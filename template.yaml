@@ -75,11 +75,11 @@ Parameters:
     Description: Telegram bot token
   RedditClientId:
     Type: String
-    Default: ''
+    Default: dummy
     Description: Reddit client ID
   RedditClientSecret:
     Type: String
-    Default: ''
+    Default: dummy
     Description: Reddit client secret
 
 Resources:
