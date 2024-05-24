@@ -21,7 +21,7 @@ Globals:
         ENVIRONMENT: !Ref Environment
         BOT_TOKEN: !Ref BotToken
         REDDIT_CLIENT_ID: !Ref RedditClientId
-        REDDIT_CLIENT_SECRET: !Ref Reddit
+        REDDIT_CLIENT_SECRET: !Ref RedditClientSecret
     Tracing: Active
   Api:
     TracingEnabled: true
