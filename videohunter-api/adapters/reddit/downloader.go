@@ -145,9 +145,9 @@ func (r *redditDownloaderRepository) GetAuthToken() (authToken string, err error
 	redditClientId := os.Getenv("REDDIT_CLIENT_ID")
 	redditClientSecret := os.Getenv("REDDIT_CLIENT_SECRET")
 
-	if redditClientId == "" || redditClientSecret == "" {
-		return "", fmt.Errorf("REDDIT_CLIENT_ID or REDDIT_CLIENT_SECRET not found")
-	}
+	// if redditClientId == "" || redditClientSecret == "" {
+	// 	return "", fmt.Errorf("REDDIT_CLIENT_ID or REDDIT_CLIENT_SECRET not found")
+	// }
 
 	return "Basic " + redditClientId + ":" + redditClientSecret, nil
 }
@@ -165,7 +165,18 @@ func (r *redditDownloaderRepository) GetJsonUrl(url string) (string, error) {
 			},
 		}
 
-		resp, err := client.Get(url)
+		// Set Authorization header
+		basicAuth, _ := r.GetAuthToken()
+
+		req, err := http.NewRequest("GET", url, nil)
+
+		if err != nil {
+			return "", err
+		}
+
+		req.Header.Set("Authorization", basicAuth)
+
+		resp, err := client.Do(req)
 
 		if err != nil {
 			return "", err
