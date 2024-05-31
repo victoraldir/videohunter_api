@@ -18,4 +18,5 @@ type DownloadRepository interface {
 
 type DownloadHlsRepository interface {
 	DownloadHls(url string) (videoDownload *domain.Video, err error)
+	MixAudioAndVideo(videoUrl, audioUrl string) (videoDownload *domain.Video, err error)
 }

@@ -22,6 +22,7 @@ type LambdaAPIGatewayApplication struct {
 	CreateUrlHandler        *handlers.CreateUrlHandler
 	GetUrlHandler           *handlers.GetUrlHandler
 	DownloadVideoHlsHandler *handlers.DownloadVideoHlsHandler
+	MixAudioVideoHandler    *handlers.MixAudioVideoHandler
 }
 
 func NewAPIGatewayHandler(config config_api.Configuration) *LambdaAPIGatewayApplication {
@@ -58,6 +59,8 @@ func NewAPIGatewayHandler(config config_api.Configuration) *LambdaAPIGatewayAppl
 		downloadVideoHlsRepository,
 	)
 
+	mixAudioVideoUserCase := usecases.NewMixAudioVideoUseCase(downloadVideoHlsRepository)
+
 	// Handlers
 	createUrlHandler := &handlers.CreateUrlHandler{
 		VideoDownloaderUseCase:  videoDownloaderUseCase,
@@ -70,10 +73,13 @@ func NewAPIGatewayHandler(config config_api.Configuration) *LambdaAPIGatewayAppl
 
 	downloadVideoHlsHandler := handlers.NewDownloadVideoHlsHandler(downloadVideoHlsUseCase)
 
+	mixAudioVideoHandler := handlers.NewMixAudioVideoHandler(mixAudioVideoUserCase)
+
 	return &LambdaAPIGatewayApplication{
 		CreateUrlHandler:        createUrlHandler,
 		GetUrlHandler:           getUrlHandler,
 		DownloadVideoHlsHandler: downloadVideoHlsHandler,
+		MixAudioVideoHandler:    mixAudioVideoHandler,
 	}
 
 }

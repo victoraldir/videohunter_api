@@ -12,13 +12,11 @@ type DownloadVideoHlsUseCase interface {
 }
 
 type downloadVideoHlsUseCase struct {
-	VideoRepository       repositories.VideoRepository
 	DownloadHlsRepository repositories.DownloadHlsRepository
 }
 
 func NewDownloadVideoHlsUseCase(videoRepository repositories.VideoRepository, downloadHlsRepository repositories.DownloadHlsRepository) *downloadVideoHlsUseCase {
 	return &downloadVideoHlsUseCase{
-		VideoRepository:       videoRepository,
 		DownloadHlsRepository: downloadHlsRepository,
 	}
 }

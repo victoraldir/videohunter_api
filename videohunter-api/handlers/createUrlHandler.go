@@ -17,6 +17,7 @@ type CreateUrlHandler struct {
 
 type VideoRequest struct {
 	VideoUrl string `json:"video_url"`
+	AudioUrl string `json:"audio_url"`
 }
 
 func NewCreateUrlHandler(videoDownloaderUseCase usecases.VideoDownloaderUseCase) CreateUrlHandler {
