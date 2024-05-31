@@ -2,7 +2,7 @@ STACK_NAME ?= videohunter-api
 REGION := us-east-1
 APP_FOLDER := videohunter-api
 APP_LOCAL_NETWORK := myvideohunter-api
-FUNCTIONS := create-url get-url download-video-hls
+FUNCTIONS := create-url get-url download-video-hls mix-audio-video
 # Get token from env variable
 PARAMETERS_OVERRIDE := LogLevel=INFO
 

@@ -122,6 +122,28 @@ Resources:
             RestApiId: !Ref GatewayAPI
             Path: /download/{url}
             Method: GET
+  
+  MixAudioVideoFunction:
+    Type: AWS::Serverless::Function
+    Metadata:
+      BuildMethod: go1.x
+    Properties:
+      CodeUri: videohunter-api/functions/mix-audio-video
+      Layers:
+        - !Ref LambdaLayer
+      Events:
+        CatchAll:
+          Type: Api
+          Properties:
+            Path: /mix
+            Method: GET
+
+  MixAudioVideoFunctionUrl:
+    Type: AWS::Lambda::Url
+    Properties:
+      TargetFunctionArn: !Ref MixAudioVideoFunction
+      AuthType: NONE
+      InvokeMode: RESPONSE_STREAM
 
   LambdaLayer:
     Type: AWS::Serverless::LayerVersion
