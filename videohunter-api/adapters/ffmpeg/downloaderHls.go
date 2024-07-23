@@ -3,6 +3,7 @@ package ffmpeg
 import (
 	"bytes"
 	"fmt"
+	"log/slog"
 	"os/exec"
 	"time"
 
@@ -53,6 +54,7 @@ func (r *downloaderHlsRepository) MixAudioAndVideo(videoUrl, audioUrl string) (v
 	timestamp := time.Now()
 	videoPath := fmt.Sprintf("/tmp/%s.mp4", timestamp.Format("20060102150405"))
 
+	slog.Info("Mixing audio and video")
 	//ffmpeg -i video.mp4 -i audio.wav -c:v copy -c:a aac output.mp4
 	command := exec.Command("ffmpeg", "-i", videoUrl, "-i", audioUrl, "-c:v", "copy", "-c:a", "aac", "-strict", "experimental", videoPath)
 

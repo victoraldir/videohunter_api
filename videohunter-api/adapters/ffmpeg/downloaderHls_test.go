@@ -1,31 +1,37 @@
 package ffmpeg
 
-// func TestDownloaderHlsRepository(t *testing.T) {
+import (
+	"testing"
 
-// 	// Arrange
-// 	url := "https://v.redd.it/b4cikpfnw80d1/HLSPlaylist.m3u8?a=1718310735%2COGE5ZDY5NmE0MzY3NmQyM2UzMTNkNTJkZmMxMmRhNzg4MmM2MzQzNTczYzY0YTYzOGFjMzQwNWQ4ZTViN2I0Zg%3D%3D&amp;v=1&amp;f=sd"
-// 	downloaderHlsRepository := NewDownloaderHlsRepository()
+	"github.com/stretchr/testify/assert"
+)
 
-// 	// Act
-// 	video, err := downloaderHlsRepository.DownloadHls(url)
+func TestDownloaderHlsRepository(t *testing.T) {
 
-// 	// Assert
-// 	assert.Nil(t, err)
-// 	assert.NotNil(t, video)
-// }
+	// Arrange
+	url := "https://v.redd.it/b4cikpfnw80d1/HLSPlaylist.m3u8?a=1718310735%2COGE5ZDY5NmE0MzY3NmQyM2UzMTNkNTJkZmMxMmRhNzg4MmM2MzQzNTczYzY0YTYzOGFjMzQwNWQ4ZTViN2I0Zg%3D%3D&amp;v=1&amp;f=sd"
+	downloaderHlsRepository := NewDownloaderHlsRepository()
 
-// func TestDownloaderHlsRepository_MixAudioAndVideo(t *testing.T) {
+	// Act
+	video, err := downloaderHlsRepository.DownloadHls(url)
 
-// 	// Arrange
-// 	videoUrl := "https://v.redd.it/b4cikpfnw80d1/DASH_480.mp4?source=fallback"
-// 	audioUrl := "https://v.redd.it/b4cikpfnw80d1/DASH_AUDIO_128.mp4"
-// 	downloaderHlsRepository := NewDownloaderHlsRepository()
+	// Assert
+	assert.Nil(t, err)
+	assert.NotNil(t, video)
+}
 
-// 	// Act
-// 	video, err := downloaderHlsRepository.MixAudioAndVideo(videoUrl, audioUrl)
+func TestDownloaderHlsRepository_MixAudioAndVideo(t *testing.T) {
 
-// 	// Assert
-// 	assert.Nil(t, err)
-// 	assert.NotNil(t, video)
-// 	assert.FileExists(t, video.Path)
-// }
+	// Arrange
+	videoUrl := "https://v.redd.it/6i6fu75bme2d1/DASH_480.mp4?source=fallback"
+	audioUrl := "https://v.redd.it/6i6fu75bme2d1/DASH_AUDIO_128.mp4"
+	downloaderHlsRepository := NewDownloaderHlsRepository()
+
+	// Act
+	video, err := downloaderHlsRepository.MixAudioAndVideo(videoUrl, audioUrl)
+
+	// Assert
+	assert.Nil(t, err)
+	assert.NotNil(t, video)
+	assert.FileExists(t, video.Path)
+}

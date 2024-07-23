@@ -11,7 +11,7 @@ Globals:
     Architectures:
       - arm64
     Handler: bootstrap
-    Runtime: provided.al2
+    Runtime: provided.al2023
     Environment:
       Variables:
         VIDEO_TABLE: !Ref VideoTableName
@@ -128,22 +128,14 @@ Resources:
     Metadata:
       BuildMethod: go1.x
     Properties:
+      MemorySize: 1536
       CodeUri: videohunter-api/functions/mix-audio-video
+      Timeout: 240
+      FunctionUrlConfig:
+        AuthType: NONE
+        InvokeMode: RESPONSE_STREAM
       Layers:
         - !Ref LambdaLayer
-      Events:
-        CatchAll:
-          Type: Api
-          Properties:
-            Path: /mix
-            Method: GET
-
-  MixAudioVideoFunctionUrl:
-    Type: AWS::Lambda::Url
-    Properties:
-      TargetFunctionArn: !Ref MixAudioVideoFunction
-      AuthType: NONE
-      InvokeMode: RESPONSE_STREAM
 
   LambdaLayer:
     Type: AWS::Serverless::LayerVersion
@@ -371,3 +363,6 @@ Outputs:
   BucketWebsite:
     Description: S3 bucket for Video Hunter website
     Value: !GetAtt WebsiteBucket.WebsiteURL
+  MixAudioVideoFunctionUrl:
+    Description: Mix Audio Video Lambda Function URL
+    Value: !GetAtt MixAudioVideoFunction.FunctionUrl
