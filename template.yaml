@@ -22,7 +22,7 @@ Globals:
         BOT_TOKEN: !Ref BotToken
         REDDIT_CLIENT_ID: !Ref RedditClientId
         REDDIT_CLIENT_SECRET: !Ref RedditClientSecret
-        DONWLOAD_HLS_URL: !GetAtt DownloadHlsVideoFunction.FunctionUrl
+        DONWLOAD_HLS_URL: "https://downloadhlsurlgoeshere.com"
     Tracing: Active
   Api:
     TracingEnabled: true
