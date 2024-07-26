@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"os"
 	"testing"
 
 	"github.com/aws/aws-lambda-go/events"
@@ -25,6 +26,9 @@ func TestGetUrlHandle_Handle(t *testing.T) {
 	t.Run("Should return html template for reddit video", func(t *testing.T) {
 		// Arrange
 		setupGetUrlHandle(t)
+
+		os.Setenv("DOWNLOAD_HLS_URL", "https://download-hls.com")
+
 		handler := NewGetUrlHandler(getUrlUseCaseMock)
 		reqSample := events.APIGatewayProxyRequest{
 			PathParameters: map[string]string{
@@ -59,6 +63,7 @@ func TestGetUrlHandle_Handle(t *testing.T) {
 		// assert html content
 		assert.Contains(t, resp.Body, "<video")
 		assert.Contains(t, resp.Body, "<input type=\"hidden\" id=\"IsRedditVideo\" value=\"true\">")
+		assert.Contains(t, resp.Body, "https://download-hls.com")
 		assert.NotContains(t, resp.Body, "<img")
 	})
 }

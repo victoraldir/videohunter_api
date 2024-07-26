@@ -15,7 +15,7 @@ GCCGO := aarch64-linux-gnu-gccgo-10
 
 .PHONY: build
 
-build:
+build: build-sam
 	${MAKE} ${MAKEOPTS} $(foreach function,${FUNCTIONS}, build-${function})
 
 build-%:
@@ -35,7 +35,7 @@ clean:
 	@rm $(foreach function,${FUNCTIONS}, ${APP_FOLDER}/functions/${function}/bootstrap)
 	@rm -rf build
 
-build/layer/bin/ffmpeg: 
+build/layer/bin/ffmpeg:
 	mkdir -p build/layer/bin
 	rm -rf build/ffmpeg*
 	cd build && curl https://johnvansickle.com/ffmpeg/releases/ffmpeg-release-arm64-static.tar.xz | tar xJ
@@ -54,8 +54,12 @@ list-resources:
 	@sam list endpoints --stack-name ${STACK_NAME} --region ${REGION}
 
 run-local: build-sam
-	cd ${APP_FOLDER} && docker-compose up -d
+	cd ${APP_FOLDER} && docker compose up -d
 	@sam local start-api --docker-network ${APP_LOCAL_NETWORK} -n environments/local.json
+
+run-local-lambda: build-sam
+	cd ${APP_FOLDER} && docker compose up -d
+	@sam build && sam local start-lambda --docker-network ${APP_LOCAL_NETWORK} -n environments/local.json
 
 export GOBIN ?= $(shell pwd)/bin
 

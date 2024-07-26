@@ -17,8 +17,8 @@ package ffmpeg
 // func TestDownloaderHlsRepository_MixAudioAndVideo(t *testing.T) {
 
 // 	// Arrange
-// 	videoUrl := "https://v.redd.it/b4cikpfnw80d1/DASH_480.mp4?source=fallback"
-// 	audioUrl := "https://v.redd.it/b4cikpfnw80d1/DASH_AUDIO_128.mp4"
+// 	videoUrl := "https://v.redd.it/6i6fu75bme2d1/DASH_480.mp4?source=fallback"
+// 	audioUrl := "https://v.redd.it/6i6fu75bme2d1/DASH_AUDIO_128.mp4"
 // 	downloaderHlsRepository := NewDownloaderHlsRepository()
 
 // 	// Act

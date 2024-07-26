@@ -22,7 +22,7 @@ func NewDownloadVideoHlsHandler(downloadVideoHlsUseCase usecases.DownloadVideoHl
 
 func (h *DownloadVideoHlsHandler) Handle(request events_aws.APIGatewayProxyRequest) (events_aws.APIGatewayProxyResponse, error) {
 
-	slog.Debug("Handling request: ", request)
+	slog.Debug("Handling request test: ", request)
 
 	urlBase64Enconded := request.PathParameters["url"]
 	slog.Debug("Decoding url: ", urlBase64Enconded)
