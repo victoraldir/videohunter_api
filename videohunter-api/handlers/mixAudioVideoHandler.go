@@ -29,8 +29,24 @@ func (h *MixAudioVideoHandler) Handle(request *events_aws.LambdaFunctionURLReque
 
 	videoRequest := &VideoRequest{}
 
-	videoRequest.AudioUrl = "https://v.redd.it/6i6fu75bme2d1/DASH_AUDIO_128.mp4"
-	videoRequest.VideoUrl = "https://v.redd.it/6i6fu75bme2d1/DASH_480.mp4?source=fallback"
+	// Get audioUrl from query parameters
+	audioUrl := request.QueryStringParameters["audio_url"]
+
+	// Get videoUrl from query parameters
+	videoUrl := request.QueryStringParameters["video_url"]
+
+	// Video and audio URLs are required
+	if audioUrl == "" && videoUrl == "" {
+		slog.Error("Missing video_url and audio_url")
+		return &events_aws.LambdaFunctionURLStreamingResponse{
+			Body:       strings.NewReader("Missing video_url and audio_url"),
+			Headers:    map[string]string{"Content-Type": "text/plain"},
+			StatusCode: 400,
+		}, nil
+	}
+
+	videoRequest.AudioUrl = audioUrl
+	videoRequest.VideoUrl = videoUrl
 
 	if videoRequest.AudioUrl == "" || videoRequest.VideoUrl == "" {
 		slog.Error("Missing video_url or audio_url")
@@ -51,22 +67,10 @@ func (h *MixAudioVideoHandler) Handle(request *events_aws.LambdaFunctionURLReque
 		}, nil
 	}
 
-	if err != nil {
-		slog.Error("Error marshalling response: ", err)
-		return &events_aws.LambdaFunctionURLStreamingResponse{
-			Body:       strings.NewReader("Error marshalling response"),
-			StatusCode: 500,
-		}, nil
-	}
-
 	// Pipe the video file to the output stream
 	pr, pw := io.Pipe()
 
-	// TeeReader gets the data from the file and also writes it to the PipeWriter
-	// tr := io.TeeReader(file, w)
-
 	go func() {
-		pw.Close()
 		// Input stream
 		log.Printf("Opening video file: %s", videoResponse.VideoPath)
 		file, err := os.Open(videoResponse.VideoPath)
@@ -78,16 +82,11 @@ func (h *MixAudioVideoHandler) Handle(request *events_aws.LambdaFunctionURLReque
 		io.Copy(pw, file)
 	}()
 
-	if err != nil {
-		log.Printf("Error reading video file: %s", err)
-	}
-
 	return &events_aws.LambdaFunctionURLStreamingResponse{
 		StatusCode: http.StatusOK,
 		Headers: map[string]string{
-			"Content-Type":                           "video/mp4",
-			"Content-Disposition":                    "attachment; filename=videofile.mp4",
-			"Lambda-Runtime-Function-Response-Model": "streaming",
+			"Content-Type":        "video/mp4",
+			"Content-Disposition": "attachment; filename=videofile.mp4",
 		},
 		Body: pr,
 	}, nil

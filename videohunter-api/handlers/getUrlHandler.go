@@ -5,6 +5,7 @@ import (
 	"embed"
 	"html/template"
 	"log/slog"
+	"os"
 
 	"github.com/aws/aws-lambda-go/events"
 
@@ -19,12 +20,22 @@ const (
 var res embed.FS
 
 type GetUrlHandler struct {
-	GerUrlUseCase usecases.GetUrlUseCase
+	GerUrlUseCase  usecases.GetUrlUseCase
+	downloadHlsUrl string
 }
 
 func NewGetUrlHandler(getUrlUseCase usecases.GetUrlUseCase) *GetUrlHandler {
+
+	url := os.Getenv("DOWNLOAD_HLS_URL")
+
+	if url == "" {
+		slog.Error("DOWNLOAD_HLS_URL is required")
+		os.Exit(1)
+	}
+
 	return &GetUrlHandler{
-		GerUrlUseCase: getUrlUseCase,
+		GerUrlUseCase:  getUrlUseCase,
+		downloadHlsUrl: url,
 	}
 }
 
@@ -53,7 +64,8 @@ func (h *GetUrlHandler) Handle(request events.APIGatewayProxyRequest) (events.AP
 	var htmlBuffer bytes.Buffer
 
 	videoMap := map[string]interface{}{
-		"Video": video,
+		"Video":          video,
+		"DownloadHlsUrl": h.downloadHlsUrl,
 	}
 
 	// Parse the HTML template

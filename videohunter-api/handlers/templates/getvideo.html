@@ -40,6 +40,9 @@
             isRedditVideo = document.getElementById('IsRedditVideo').value;
 
             if (isRedditVideo == 'true') {
+
+                baseUrl = {{ .DownloadHlsUrl }};
+
                 // Base64 encode the video
                 videoUrl = btoa(videoUrl);
 

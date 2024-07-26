@@ -22,6 +22,7 @@ Globals:
         BOT_TOKEN: !Ref BotToken
         REDDIT_CLIENT_ID: !Ref RedditClientId
         REDDIT_CLIENT_SECRET: !Ref RedditClientSecret
+        DONWLOAD_HLS_URL: !GetAtt DownloadHlsVideoFunction.FunctionUrl
     Tracing: Active
   Api:
     TracingEnabled: true
@@ -115,13 +116,9 @@ Resources:
       CodeUri: videohunter-api/functions/download-video-hls
       Layers:
         - !Ref LambdaLayer
-      Events:
-        CatchAll:
-          Type: Api
-          Properties:
-            RestApiId: !Ref GatewayAPI
-            Path: /download/{url}
-            Method: GET
+      FunctionUrlConfig:
+        AuthType: NONE
+        InvokeMode: RESPONSE_STREAM
   
   MixAudioVideoFunction:
     Type: AWS::Serverless::Function
