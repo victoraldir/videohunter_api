@@ -24,7 +24,9 @@ func (h *DownloadVideoHlsHandler) Handle(request events_aws.APIGatewayProxyReque
 
 	slog.Debug("Handling request test: ", request)
 
-	urlBase64Enconded := request.PathParameters["url"]
+	// Get video from query parameters
+	urlBase64Enconded := request.QueryStringParameters["url"]
+
 	slog.Debug("Decoding url: ", urlBase64Enconded)
 	urlDecoded, err := base64.StdEncoding.DecodeString(urlBase64Enconded)
 
