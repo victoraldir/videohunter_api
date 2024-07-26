@@ -360,6 +360,3 @@ Outputs:
   BucketWebsite:
     Description: S3 bucket for Video Hunter website
     Value: !GetAtt WebsiteBucket.WebsiteURL
-  MixAudioVideoFunctionUrl:
-    Description: Mix Audio Video Lambda Function URL
-    Value: !GetAtt MixAudioVideoFunction.FunctionUrl

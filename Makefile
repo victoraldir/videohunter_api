@@ -46,8 +46,8 @@ delete:
 
 deploy: build-sam
 	if [ -f samconfig.toml ]; \
-		then sam deploy --stack-name ${STACK_NAME} --region ${REGION} --parameter-overrides ${PARAMETERS_OVERRIDE} --no-confirm-changeset; \
-		else sam deploy -g --stack-name ${STACK_NAME} --region ${REGION} --parameter-overrides ${PARAMETERS_OVERRIDE} --no-confirm-changeset; \
+		then sam deploy --stack-name ${STACK_NAME} --region ${REGION} --parameter-overrides ${PARAMETERS_OVERRIDE} --no-confirm-changeset --no-execute-changeset; \
+		else sam deploy -g --stack-name ${STACK_NAME} --region ${REGION} --parameter-overrides ${PARAMETERS_OVERRIDE} --no-confirm-changeset --no-execute-changeset; \
   	fi
 
 list-resources:
