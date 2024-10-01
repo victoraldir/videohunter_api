@@ -41,13 +41,11 @@
 
             if (isRedditVideo == 'true') {
 
-                baseUrl = {{ .DownloadHlsUrl }};
-
-                // Base64 encode the video
-                videoUrl = btoa(videoUrl);
-
+                // Split quey by ? and get the first element
+                videoUrl = videoUrl.split('?')[0];        
+        
                 // Start the download
-                window.location.href = '/prod/download/' + videoUrl;
+                window.location.href = '/prod/download?url=' + videoUrl;
                 return;
             }
 

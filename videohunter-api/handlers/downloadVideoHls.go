@@ -1,14 +1,18 @@
 package handlers
 
 import (
-	"encoding/base64"
 	"io"
+	"log"
 	"os"
+	"strings"
 
-	events_aws "github.com/aws/aws-lambda-go/events"
+	"github.com/aws/aws-lambda-go/events"
 	"github.com/victoraldir/myvideohunterapi/usecases"
-	"golang.org/x/exp/slog"
 )
+
+type DownalodRequest struct {
+	Url string `json:"url"`
+}
 
 type DownloadVideoHlsHandler struct {
 	DownloadVideoHlsUseCase usecases.DownloadVideoHlsUseCase
@@ -20,71 +24,83 @@ func NewDownloadVideoHlsHandler(downloadVideoHlsUseCase usecases.DownloadVideoHl
 	}
 }
 
-func (h *DownloadVideoHlsHandler) Handle(request events_aws.APIGatewayProxyRequest) (events_aws.APIGatewayProxyResponse, error) {
+func (h *DownloadVideoHlsHandler) Handle(request *events.LambdaFunctionURLRequest) (*events.LambdaFunctionURLStreamingResponse, error) {
 
-	slog.Debug("Handling request test: ", request)
+	log.Println("Request download: ", request)
 
 	// Get video from query parameters
-	urlBase64Enconded := request.QueryStringParameters["url"]
+	url := request.QueryStringParameters["url"]
 
-	slog.Debug("Decoding url: ", urlBase64Enconded)
-	urlDecoded, err := base64.StdEncoding.DecodeString(urlBase64Enconded)
+	// log.Println("Body: ", body)
+	// unscapeBody := strings.Replace(body, "\\\"", "\"", -1)
+	// log.Println("Unscape body: ", unscapeBody)
+
+	downloadRequest := &DownalodRequest{}
+	// err := json.Unmarshal([]byte(unscapeBody), downloadRequest)
+	downloadRequest.Url = url
+	// if err != nil {
+	// 	log.Println("Error unmarshalling request: ", err)
+	// 	return &events.LambdaFunctionURLStreamingResponse{
+	// 		Body:       strings.NewReader("Invalid Request"),
+	// 		Headers:    map[string]string{"Content-Type": "text/plain"},
+	// 		StatusCode: 400,
+	// 	}, nil
+	// }
+
+	// log.Println("Decoding url: ", downloadRequest.Url)
+
+	// if err != nil {
+	// 	log.Println("Error decoding url: ", err)
+	// 	return &events.LambdaFunctionURLStreamingResponse{
+	// 		Body:       strings.NewReader("Invalid url"),
+	// 		Headers:    map[string]string{"Content-Type": "text/plain"},
+	// 		StatusCode: 400,
+	// 	}, nil
+	// }
+
+	log.Println("Downloading video from: ", downloadRequest.Url)
+
+	videoResponse, err := h.DownloadVideoHlsUseCase.Execute(downloadRequest.Url)
 
 	if err != nil {
-		slog.Error("Error decoding url: ", err)
-		return events_aws.APIGatewayProxyResponse{
-			Body:       "Error decoding url",
-			StatusCode: 400,
-		}, nil
-	}
-
-	videoRequest := &VideoRequest{
-		VideoUrl: string(urlDecoded),
-	}
-
-	slog.Debug("Downloading video from: ", videoRequest)
-
-	videoResponse, err := h.DownloadVideoHlsUseCase.Execute(videoRequest.VideoUrl)
-
-	if err != nil {
-		slog.Error("Error downloading video: ", err)
-		return events_aws.APIGatewayProxyResponse{
-			Body:       "Error downloading video",
+		log.Println("Error downloading video: ", err)
+		return &events.LambdaFunctionURLStreamingResponse{
+			Body:       strings.NewReader("Error downloading video"),
+			Headers:    map[string]string{"Content-Type": "text/plain"},
 			StatusCode: 500,
 		}, nil
 	}
 
 	if err != nil {
-		slog.Error("Error marshalling response: ", err)
-		return events_aws.APIGatewayProxyResponse{
-			Body:       "Error marshalling response",
+		log.Println("Error marshalling response: ", err)
+		return &events.LambdaFunctionURLStreamingResponse{
+			Body:       strings.NewReader("Error marshalling response"),
+			Headers:    map[string]string{"Content-Type": "text/plain"},
 			StatusCode: 500,
 		}, nil
 	}
 
 	// Input stream
-	slog.Debug("Opening video file: ", videoResponse.VideoPath)
+	log.Println("Opening video file: ", videoResponse.VideoPath)
 	file, err := os.Open(videoResponse.VideoPath)
 
 	if err != nil {
-		slog.Error("Error opening video file: ", err)
+		log.Println("Error opening video file: ", err)
 	}
 
 	// Read the video file
 	content, err := io.ReadAll(file)
 
 	if err != nil {
-		slog.Error("Error reading video file: ", err)
+		log.Println("Error reading video file: ", err)
 	}
 
-	return events_aws.APIGatewayProxyResponse{
-		Body:            base64.StdEncoding.EncodeToString(content),
-		StatusCode:      200,
-		IsBase64Encoded: true,
+	return &events.LambdaFunctionURLStreamingResponse{
+		Body: strings.NewReader(string(content)),
 		Headers: map[string]string{
 			"Content-Type":        "video/mp4",
-			"Content-Disposition": "attachment; filename=video.mp4",
+			"Content-Disposition": "attachment; filename=myfile.mp4",
 		},
+		StatusCode: 200,
 	}, nil
-
 }

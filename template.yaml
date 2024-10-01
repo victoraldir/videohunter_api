@@ -26,8 +26,6 @@ Globals:
     Tracing: Active
   Api:
     TracingEnabled: true
-    BinaryMediaTypes:
-      - "*/*"
     Cors:
       AllowMethods: '''GET,POST,OPTIONS'''
       AllowHeaders: '''content-type'''
@@ -113,6 +111,7 @@ Resources:
     Metadata:
       BuildMethod: go1.x
     Properties:
+      Runtime: provided.al2
       CodeUri: videohunter-api/functions/download-video-hls
       Layers:
         - !Ref LambdaLayer
@@ -120,19 +119,19 @@ Resources:
         AuthType: NONE
         InvokeMode: RESPONSE_STREAM
   
-  MixAudioVideoFunction:
-    Type: AWS::Serverless::Function
-    Metadata:
-      BuildMethod: go1.x
-    Properties:
-      MemorySize: 1536
-      CodeUri: videohunter-api/functions/mix-audio-video
-      Timeout: 240
-      FunctionUrlConfig:
-        AuthType: NONE
-        InvokeMode: RESPONSE_STREAM
-      Layers:
-        - !Ref LambdaLayer
+  # MixAudioVideoFunction:
+  #   Type: AWS::Serverless::Function
+  #   Metadata:
+  #     BuildMethod: go1.x
+  #   Properties:
+  #     MemorySize: 1536
+  #     CodeUri: videohunter-api/functions/mix-audio-video
+  #     Timeout: 240
+  #     FunctionUrlConfig:
+  #       AuthType: NONE
+  #       InvokeMode: RESPONSE_STREAM
+  #     Layers:
+  #       - !Ref LambdaLayer
 
   LambdaLayer:
     Type: AWS::Serverless::LayerVersion

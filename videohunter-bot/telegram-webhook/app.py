@@ -57,13 +57,13 @@ def lambda_handler(event, context):
         url = "https://myvideohunter.com/prod/url"
 
         # Decode base64 body
-        bodyDecoded = base64.b64decode(event['body'])
+        # bodyDecoded = base64.b64decode(event['body'])
 
         print('######')
-        print("bodyDecoded: ", bodyDecoded)
+        # print("bodyDecoded: ", bodyDecoded)
         print('######')
 
-        body = json.loads(bodyDecoded)
+        body = json.loads(event['body'])
         
         try:
             if not body or not body['message']:

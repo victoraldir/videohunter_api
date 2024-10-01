@@ -31,11 +31,9 @@ func (h *CreateUrlHandler) Handle(request events_aws.APIGatewayProxyRequest) (ev
 
 	log.Println("Request: ", request)
 
-	// Decode from base64
-	bodyDecoded, _ := utils.Base64Decode(request.Body)
+	body := request.Body
 
-	log.Println("Body decoded: ", bodyDecoded)
-	err := json.Unmarshal([]byte(bodyDecoded), videoRequest)
+	err := json.Unmarshal([]byte(body), videoRequest)
 
 	if err != nil {
 		slog.Error("Error unmarshalling request: ", err)

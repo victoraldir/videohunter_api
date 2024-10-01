@@ -1,7 +1,7 @@
 package usecases
 
 import (
-	"log/slog"
+	"log"
 
 	"github.com/victoraldir/myvideohunterapi/events"
 	"github.com/victoraldir/myvideohunterapi/repositories"
@@ -24,7 +24,7 @@ func NewDownloadVideoHlsUseCase(videoRepository repositories.VideoRepository, do
 func (v *downloadVideoHlsUseCase) Execute(url string) (*events.DownloadVideoHlsResponse, error) {
 
 	videoDownload, err := v.DownloadHlsRepository.DownloadHls(url)
-	slog.Debug("downloadVideoHlsUseCase excute() DownloadHls():", "videoDownload", videoDownload)
+	log.Println("downloadVideoHlsUseCase excute() DownloadHls():", "videoDownload", videoDownload)
 
 	if err != nil {
 		return nil, err
