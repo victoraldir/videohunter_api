@@ -37,9 +37,9 @@
         function downloadVideo(videoUrl) {
             let oReq = new XMLHttpRequest();
 
-            isRedditVideo = document.getElementById('IsRedditVideo').value;
+            isTwitter = document.getElementById('IsTwitter').value;
 
-            if (isRedditVideo == 'true') {
+            if (isTwitter != 'true') {
 
                 // Split quey by ? and get the first element
                 videoUrl = videoUrl.split('?')[0];        
@@ -114,7 +114,7 @@
         <div class="col d-flex justify-content-center">
             <div class="card  p-0 col-sm-7 border-0 rounded-1 shadow mx-auto mb-3">
 
-                {{ if .Video.IsRedditVideo }}
+                {{ if .Video.IsTwitter }}
                 <video style="max-height:250px; max-width: fit-content; align-self: center; margin-top: 10px;" autoplay>
                     <source src="{{ .Video.ThumbnailUrl }}" type="video/mp4">
                     Your browser does not support the video tag.
@@ -122,7 +122,7 @@
                 {{ else }}
                 <img src="{{ .Video.ThumbnailUrl }}" class="card-img-top" style="max-height:250px; max-width: fit-content; align-self: center; margin-top: 10px;">
                 {{ end }}
-                <input type="hidden" id="IsRedditVideo" value="{{ .Video.IsRedditVideo }}">
+                <input type="hidden" id="IsTwitter" value="{{ .Video.IsTwitter }}">
                 <div class="card-body">
                     <a href="{{ .Video.OriginalVideoUrl }}" class="card-title" target="_blank">Original URL</a>
                   <p class="card-text">{{ .Video.Text }}</p>

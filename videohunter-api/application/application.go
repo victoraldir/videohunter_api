@@ -8,6 +8,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
 	dynamodb_aws "github.com/aws/aws-sdk-go/service/dynamodb"
+	"github.com/victoraldir/myvideohunterapi/adapters/bsky"
 	"github.com/victoraldir/myvideohunterapi/adapters/dynamodb"
 	"github.com/victoraldir/myvideohunterapi/adapters/ffmpeg"
 	"github.com/victoraldir/myvideohunterapi/adapters/reddit"
@@ -20,6 +21,7 @@ import (
 
 type LambdaAPIGatewayApplication struct {
 	CreateUrlHandler        *handlers.CreateUrlHandler
+	CreateUrlBatchHandler   handlers.CreateUrlBatchHandler
 	GetUrlHandler           *handlers.GetUrlHandler
 	DownloadVideoHlsHandler *handlers.DownloadVideoHlsHandler
 	MixAudioVideoHandler    *handlers.MixAudioVideoHandler
@@ -33,7 +35,7 @@ func NewAPIGatewayHandler(config config_api.Configuration) *LambdaAPIGatewayAppl
 	var client dynamodb.DynamodDBClient
 
 	if config.Environment == config_api.Local {
-		client = createLocalDynamodbClient(config)
+		client = CreateLocalDynamodbClient(config)
 	} else {
 		client = createDynamodbClient(config)
 	}
@@ -44,6 +46,7 @@ func NewAPIGatewayHandler(config config_api.Configuration) *LambdaAPIGatewayAppl
 	downloadeRepository := twitter.NewTwitterDownloaderRepository(httpClient)
 	redditDownloaderRepository := reddit.NewRedditDownloaderRepository(httpClient)
 	downloadVideoHlsRepository := ffmpeg.NewDownloaderHlsRepository()
+	socialNetworkRepository := bsky.NewBskyDownloaderRepository(httpClient)
 
 	// Use Cases
 	videoDownloaderUseCase := usecases.NewVideoDownloaderUseCase(
@@ -59,7 +62,9 @@ func NewAPIGatewayHandler(config config_api.Configuration) *LambdaAPIGatewayAppl
 		downloadVideoHlsRepository,
 	)
 
-	mixAudioVideoUserCase := usecases.NewMixAudioVideoUseCase(downloadVideoHlsRepository)
+	mixAudioVideoUseCase := usecases.NewMixAudioVideoUseCase(downloadVideoHlsRepository)
+
+	createUrlBatchUseCase := usecases.NewCreateUrlBatchUseCase(socialNetworkRepository, videoRepository)
 
 	// Handlers
 	createUrlHandler := &handlers.CreateUrlHandler{
@@ -73,18 +78,21 @@ func NewAPIGatewayHandler(config config_api.Configuration) *LambdaAPIGatewayAppl
 
 	downloadVideoHlsHandler := handlers.NewDownloadVideoHlsHandler(downloadVideoHlsUseCase)
 
-	mixAudioVideoHandler := handlers.NewMixAudioVideoHandler(mixAudioVideoUserCase)
+	mixAudioVideoHandler := handlers.NewMixAudioVideoHandler(mixAudioVideoUseCase)
+
+	createUrlBatchHandler := handlers.NewCreateUrlBatchHandler(createUrlBatchUseCase)
 
 	return &LambdaAPIGatewayApplication{
 		CreateUrlHandler:        createUrlHandler,
 		GetUrlHandler:           getUrlHandler,
 		DownloadVideoHlsHandler: downloadVideoHlsHandler,
 		MixAudioVideoHandler:    mixAudioVideoHandler,
+		CreateUrlBatchHandler:   createUrlBatchHandler,
 	}
 
 }
 
-func createLocalDynamodbClient(config config_api.Configuration) *dynamodb_aws.DynamoDB {
+func CreateLocalDynamodbClient(config config_api.Configuration) *dynamodb_aws.DynamoDB {
 
 	slog.Debug("Connecting to local DynamoDB",
 		"LocalDynamodbAddr", config.LocalDynamodbAddr,
