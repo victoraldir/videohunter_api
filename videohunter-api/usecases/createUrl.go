@@ -26,6 +26,9 @@ type redditVideoDownloaderUseCase struct {
 	RedditDownloadRepository repositories.DownloadRepository
 }
 
+type BskyVideoDownloaderUseCase struct {
+}
+
 func NewRedditVideoDownloaderUseCase(videoRepository repositories.VideoRepository, redditDownloadRepository repositories.DownloadRepository) *redditVideoDownloaderUseCase {
 	return &redditVideoDownloaderUseCase{
 		VideoRepository:          videoRepository,

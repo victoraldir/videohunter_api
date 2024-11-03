@@ -68,7 +68,33 @@ func IsTwitterUrl(twitterUrl string) bool {
 	}
 
 	return true
+}
 
+func IsBlueskyUrl(blueskyUrl string) bool {
+
+	if blueskyUrl == "" {
+		return false
+	}
+
+	url, err := url.Parse(blueskyUrl)
+
+	if err != nil {
+		return false
+	}
+
+	if url.Host != "bsky.app" {
+		return false
+	}
+
+	if url.Scheme != "https" {
+		return false
+	}
+
+	if url.Path == "" {
+		return false
+	}
+
+	return true
 }
 
 func GetVideoId(twitterUrl string) string {

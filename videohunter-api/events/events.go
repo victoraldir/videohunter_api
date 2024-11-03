@@ -17,6 +17,7 @@ type (
 		Id           string `json:"id"`
 		ThumbnailUrl string `json:"thumbnail_url"`
 		Description  string `json:"description"`
+		Uri          string `json:"uri"`
 	}
 
 	GetVideoResponse struct {
@@ -43,7 +44,7 @@ func (v *VideoResponseVariant) GetVidResFromUrl() string {
 
 	splittedUrl := strings.Split(v.URL, "/")
 
-	if splittedUrl[redditDomainIdx] == "v.redd.it" {
+	if splittedUrl[redditDomainIdx] == "v.redd.it" || splittedUrl[redditDomainIdx] == "video.bsky.app" {
 		return "full quality"
 	}
 
@@ -59,9 +60,9 @@ func (v *VideoResponseVariant) GetVidResFromUrl() string {
 	return splittedUrl[amplifyVideoIdx]
 }
 
-func (v *GetVideoResponse) IsRedditVideo() bool {
+func (v *GetVideoResponse) IsTwitter() bool {
 	urlSplitted := strings.Split(v.OriginalVideoUrl, "/")
-	return urlSplitted[redditDomainIdx] == "v.redd.it" ||
-		urlSplitted[redditDomainIdx] == "www.reddit.com" ||
-		urlSplitted[redditDomainIdx] == "reddit.com"
+	return urlSplitted[redditDomainIdx] == "x.com" ||
+		urlSplitted[redditDomainIdx] == "twitter.com" ||
+		urlSplitted[redditDomainIdx] == "www.twitter.com"
 }

@@ -32,6 +32,10 @@ func (v *getUrlUseCase) Execute(videoId string) (*events.GetVideoResponse, error
 		return nil, err
 	}
 
+	if video == nil {
+		return nil, nil
+	}
+
 	videoReponse := videoToGetVideoResponse(video)
 
 	return videoReponse, nil
