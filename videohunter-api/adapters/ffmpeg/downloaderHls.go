@@ -35,13 +35,13 @@ func (r *downloaderHlsRepository) DownloadHls(url string) (videoDownload *domain
 	}
 
 	// Use ffmpeg to download the video
-	// Command: ffmpeg -i {url} -c copy -bsf:a aac_adtstoasc /tmp/output.mp4
+	// Command: ffmpeg -http_persistent 0 -i {url} -c copy -bsf:a aac_adtstoasc /tmp/output.mp4
 	timestamp := time.Now()
 	videoPath := fmt.Sprintf("/tmp/%s.mp4", timestamp.Format("20060102150405"))
 
 	log.Println("Downloading video from: ", url)
 	log.Println("Saving video to: ", videoPath)
-	command = exec.Command("ffmpeg", "-i", url, "-c", "copy", "-bsf:a", "aac_adtstoasc", videoPath)
+	command = exec.Command("ffmpeg", "-http_persistent", "0", "-i", url, "-c", "copy", "-bsf:a", "aac_adtstoasc", videoPath)
 
 	var outb, errb bytes.Buffer
 
