@@ -62,3 +62,31 @@ func TestBskyService_EnrichPost(t *testing.T) {
 		assert.NotNil(t, posts)
 	})
 }
+
+func TestBskyService_Reply(t *testing.T) {
+	t.Run("Should reply", func(t *testing.T) {
+		// Arrange
+		httpClient := &http.Client{}
+		bskyService := NewBskyService(httpClient)
+		posts, err := bskyService.SearchPostsByMention("@myvideohunter.com", "2024-10-05T21:36:29.181Z")
+		assert.Nil(t, err)
+
+		// Enrich posts
+		bskyService.EnrichPost(&posts)
+
+		// Act
+		for i := 0; i < len(posts); i++ {
+			post := (posts)[i]
+
+			if post.Url != nil {
+				err = bskyService.Reply(post)
+				break
+			}
+		}
+
+		// Assert
+		assert.Nil(t, err)
+
+		assert.NotNil(t, posts)
+	})
+}

@@ -1,16 +1,35 @@
 package domain
 
+type Url struct {
+	Id          string `json:"id"`
+	Thumbnail   string `json:"thumbnail"`
+	Description string `json:"description"`
+	Uri         string `json:"uri"`
+}
+
 type Posts struct {
 	Posts []Post `json:"posts"`
 }
 
 type Post struct {
-	Uri       string    `json:"uri"`
-	Cid       string    `json:"cid"`
-	Author    Author    `json:"author"`
-	Record    Record    `json:"record"`
-	Embed     Embed     `json:"embed"`
-	RootVideo RootVideo // Enriched video
+	Uri    string `json:"uri"`
+	Cid    string `json:"cid"`
+	Author Author `json:"author"`
+	Record Record `json:"record"`
+	Embed  Embed  `json:"embed"`
+	Url    *Url   // Enriched video
+}
+
+type PostReply struct {
+	Record     RecordReply `json:"record"`
+	Repo       string      `json:"repo"`
+	Collection string      `json:"collection"`
+}
+
+type RecordReply struct {
+	Text      string `json:"text"`
+	CreatedAt string `json:"createdAt"`
+	Reply     Reply  `json:"reply"`
 }
 
 type RootVideo struct {
