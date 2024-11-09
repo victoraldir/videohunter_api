@@ -38,7 +38,7 @@ clean:
 build/layer/bin/ffmpeg:
 	mkdir -p build/layer/bin
 	rm -rf build/ffmpeg*
-	cd build && curl https://www.ffmpeg.org/releases/ffmpeg-7.1.tar.xz | tar xJ
+	cd build && curl https://johnvansickle.com/ffmpeg/releases/ffmpeg-release-arm64-static.tar.xz | tar xJ
 	mv build/ffmpeg*/ffmpeg build/ffmpeg*/ffprobe build/layer/bin
 
 delete:
