@@ -32,7 +32,7 @@ tidy:
 	@$(foreach dir,$(MODULE_DIRS),(cd $(dir) && go mod tidy) &&) true
 
 clean:
-	@rm $(foreach function,${FUNCTIONS}, ${APP_FOLDER}/functions/${function}/bootstrap)
+	@rm -f $(foreach function,${FUNCTIONS}, ${APP_FOLDER}/functions/${function}/bootstrap)
 	@rm -rf build
 
 build/layer/bin/ffmpeg:
