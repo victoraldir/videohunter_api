@@ -15,7 +15,7 @@ GCCGO := aarch64-linux-gnu-gccgo-10
 
 .PHONY: build
 
-build: build-sam
+build: clean build-sam
 	${MAKE} ${MAKEOPTS} $(foreach function,${FUNCTIONS}, build-${function})
 
 build-%:
@@ -40,6 +40,7 @@ build/layer/bin/ffmpeg:
 	rm -rf build/ffmpeg*
 	cd build && curl https://johnvansickle.com/ffmpeg/releases/ffmpeg-release-arm64-static.tar.xz | tar xJ
 	mv build/ffmpeg*/ffmpeg build/ffmpeg*/ffprobe build/layer/bin
+	rm -rf build/ffmpeg*
 
 delete:
 	@sam delete --stack-name ${STACK_NAME} --region ${REGION} 
