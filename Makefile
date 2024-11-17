@@ -15,7 +15,7 @@ GCCGO := aarch64-linux-gnu-gccgo-10
 
 .PHONY: build
 
-build: clean build-sam
+build: build-sam
 	${MAKE} ${MAKEOPTS} $(foreach function,${FUNCTIONS}, build-${function})
 
 build-%:
@@ -32,7 +32,7 @@ tidy:
 	@$(foreach dir,$(MODULE_DIRS),(cd $(dir) && go mod tidy) &&) true
 
 clean:
-	@rm -f $(foreach function,${FUNCTIONS}, ${APP_FOLDER}/functions/${function}/bootstrap)
+	@rm $(foreach function,${FUNCTIONS}, ${APP_FOLDER}/functions/${function}/bootstrap)
 	@rm -rf build
 
 build/layer/bin/ffmpeg:

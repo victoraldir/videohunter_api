@@ -115,7 +115,7 @@ func (f *fetchPost) GetSession() (*domain.Session, error) {
 		return nil, err
 	}
 
-	if token == nil || refreshToken == nil {
+	if token == nil || refreshToken == nil || refreshToken.Value == "" || token.Value == "" {
 		slog.Info("Token or refresh token not found, logging in")
 		session, err := f.bskyService.Login()
 		if err != nil {
@@ -147,21 +147,21 @@ func (f *fetchPost) GetSession() (*domain.Session, error) {
 	isExpired := f.bskyService.IsSessionExpired()
 	if isExpired {
 		slog.Info("Session expired, refreshing", slog.Any("session", newSession))
-		newSession, err = f.bskyService.RefreshSession(newSession)
+		newSessionRefreshed, err := f.bskyService.RefreshSession(newSession)
 		if err != nil {
 			slog.Error("Error refreshing session", "error", err)
 			return nil, err
 		}
 
-		slog.Info("Session refreshed", slog.Any("session", newSession))
+		slog.Info("Session refreshed", slog.Any("session", newSessionRefreshed))
 		f.dynamodb.SaveSetting(&domain.Settings{
 			KeySetting: string(domain.BskyAccessToken),
-			Value:      newSession.AccessJwt,
+			Value:      newSessionRefreshed.AccessJwt,
 		})
 
 		f.dynamodb.SaveSetting(&domain.Settings{
 			KeySetting: string(domain.BskyRefreshToken),
-			Value:      newSession.RefreshJwt,
+			Value:      newSessionRefreshed.RefreshJwt,
 		})
 	}
 
