@@ -1,23 +1,29 @@
 package bsky
 
 import (
+	"log/slog"
 	"net/http"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 )
 
+var (
+	userName = "myvideohunter.com"
+	password = "bla"
+)
+
 func TestBskyService_SearchPostsByMention(t *testing.T) {
+
+	// Arrange
+	httpClient := &http.Client{}
+	bskyService := NewBskyService(httpClient, userName, password)
+	bskyService.Login()
 
 	t.Run("Should search posts by mention", func(t *testing.T) {
 
-		// Arrange
-		httpClient := &http.Client{}
-
-		bskyService := NewBskyService(httpClient)
-
 		// Act
-		posts, err := bskyService.SearchPostsByMention("@myvideohunter.com", "2024-10-05T21:36:29.181Z")
+		posts, err := bskyService.SearchPostsByMention("@myvideohunter.com", "2024-11-16T19:03:53Z", "2024-11-16T19:05:55Z")
 
 		// Assert
 		assert.Nil(t, err)
@@ -26,10 +32,13 @@ func TestBskyService_SearchPostsByMention(t *testing.T) {
 }
 
 func TestBskyService_GetPostsByUris(t *testing.T) {
+
+	// Arrange
+	httpClient := &http.Client{}
+	bskyService := NewBskyService(httpClient, userName, password)
+	bskyService.Login()
+
 	t.Run("Should get posts by uris", func(t *testing.T) {
-		// Arrange
-		httpClient := &http.Client{}
-		bskyService := NewBskyService(httpClient)
 
 		// Act
 		postsByUris, err := bskyService.GetPostsByUris([]string{
@@ -46,11 +55,16 @@ func TestBskyService_GetPostsByUris(t *testing.T) {
 }
 
 func TestBskyService_EnrichPost(t *testing.T) {
+
+	// Arrange
+	httpClient := &http.Client{}
+	bskyService := NewBskyService(httpClient, userName, password)
+	bskyService.Login()
+
 	t.Run("Should enrich post", func(t *testing.T) {
+
 		// Arrange
-		httpClient := &http.Client{}
-		bskyService := NewBskyService(httpClient)
-		posts, err := bskyService.SearchPostsByMention("@myvideohunter.com", "2024-10-05T21:36:29.181Z")
+		posts, err := bskyService.SearchPostsByMention("@myvideohunter.com", "2024-11-16T19:03:53Z", "2024-11-16T19:05:55Z")
 		assert.Nil(t, err)
 
 		// Act
@@ -64,11 +78,15 @@ func TestBskyService_EnrichPost(t *testing.T) {
 }
 
 func TestBskyService_Reply(t *testing.T) {
+
+	// Arrange
+	httpClient := &http.Client{}
+	bskyService := NewBskyService(httpClient, userName, password)
+	bskyService.Login()
+
 	t.Run("Should reply", func(t *testing.T) {
 		// Arrange
-		httpClient := &http.Client{}
-		bskyService := NewBskyService(httpClient)
-		posts, err := bskyService.SearchPostsByMention("@myvideohunter.com", "2024-10-05T21:36:29.181Z")
+		posts, err := bskyService.SearchPostsByMention("@myvideohunter.com", "2024-11-16T19:03:53Z", "2024-11-16T19:05:55Z")
 		assert.Nil(t, err)
 
 		// Enrich posts
@@ -80,7 +98,9 @@ func TestBskyService_Reply(t *testing.T) {
 
 			if post.Url != nil {
 				err = bskyService.Reply(post)
-				break
+				if err != nil {
+					slog.Debug("Error replying", slog.Any("error", err))
+				}
 			}
 		}
 
@@ -88,5 +108,35 @@ func TestBskyService_Reply(t *testing.T) {
 		assert.Nil(t, err)
 
 		assert.NotNil(t, posts)
+	})
+}
+
+func TestBskyService_Login(t *testing.T) {
+
+	// Arrange
+	httpClient := &http.Client{}
+	bskyService := NewBskyService(httpClient, userName, password)
+
+	t.Run("Should login", func(t *testing.T) {
+
+		// Act
+		session, err := bskyService.Login()
+
+		// Assert
+		assert.Nil(t, err)
+		assert.NotNil(t, session)
+	})
+
+	t.Run("Should not login", func(t *testing.T) {
+		// Arrange
+		httpClient := &http.Client{}
+		bskyService := NewBskyService(httpClient, userName, "123")
+
+		// Act
+		session, err := bskyService.Login()
+
+		// Assert
+		assert.Nil(t, session)
+		assert.NotNil(t, err)
 	})
 }

@@ -1,13 +1,21 @@
 package main
 
-import "fmt"
+import (
+	"log/slog"
+	"os"
+
+	"github.com/aws/aws-lambda-go/lambda"
+	"github.com/victoraldir/myvideohunterbsky/application"
+)
 
 func main() {
-	fmt.Println("Fetch posts with mentions of @myvideohunter.com")
 
-	fmt.Println("Enrich posts found")
+	bskyUserName := os.Getenv("BSKY_USERNAME")
+	bskyPassword := os.Getenv("BSKY_PASSWORD")
 
-	fmt.Println("Send m3u8 list to download")
+	slog.Info("credentials", slog.Any("bskyUserName", bskyUserName), slog.Any("bskyPassword", bskyPassword))
 
-	fmt.Println("Reply users with their download link")
+	handler := application.NewFetchPostHandler()
+
+	lambda.Start(handler.Handle)
 }

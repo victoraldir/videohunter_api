@@ -27,9 +27,11 @@ type PostReply struct {
 }
 
 type RecordReply struct {
-	Text      string `json:"text"`
-	CreatedAt string `json:"createdAt"`
-	Reply     Reply  `json:"reply"`
+	Text          string         `json:"text"`
+	CreatedAt     string         `json:"createdAt"`
+	Reply         Reply          `json:"reply"`
+	EmbedExternal *EmbedExternal `json:"embed"`
+	Facets        []Facet        `json:"facets"`
 }
 
 type RootVideo struct {
@@ -52,6 +54,21 @@ type Record struct {
 	Embed     Embed    `json:"embed"`
 }
 
+type Facet struct {
+	Features []Feature `json:"features"`
+	Index    Index     `json:"index"`
+}
+
+type Index struct {
+	ByteStart int `json:"byteStart"`
+	ByteEnd   int `json:"byteEnd"`
+}
+
+type Feature struct {
+	Type string `json:"$type"`
+	Uri  string `json:"uri"`
+}
+
 type Reply struct {
 	Parent PostItem `json:"parent"`
 	Root   PostItem `json:"root"`
@@ -63,12 +80,26 @@ type PostItem struct {
 }
 
 type Embed struct {
-	Type       string     `json:"$type"`
-	Cid        string     `json:"cid"`
-	AspecRatio AspecRatio `json:"aspectRatio"`
-	Video      Video      `json:"video"`
-	Playlist   string     `json:"playlist"`
-	Thumbnail  string     `json:"thumbnail"`
+	Type        string     `json:"$type"`
+	Uri         string     `json:"uri"`
+	Title       string     `json:"title"`
+	Description string     `json:"description"`
+	Cid         string     `json:"cid"`
+	AspecRatio  AspecRatio `json:"aspectRatio"`
+	Video       Video      `json:"video"`
+	Playlist    string     `json:"playlist"`
+	Thumbnail   string     `json:"thumbnail"`
+}
+
+type EmbedExternal struct {
+	Type     string   `json:"$type"`
+	External External `json:"external"`
+}
+
+type External struct {
+	Uri         string `json:"uri"`
+	Title       string `json:"title"`
+	Description string `json:"description"`
 }
 
 type AspecRatio struct {

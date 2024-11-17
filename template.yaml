@@ -19,10 +19,12 @@ Globals:
         LOG_LEVEL: !Ref LogLevel
         REGION: !Ref Region
         ENVIRONMENT: !Ref Environment
-        BOT_TOKEN: !Ref BotToken
+        BOT_TOKEN: '{{resolve:ssm:/videohunter/telegram/bot/token:2}}'
         REDDIT_CLIENT_ID: !Ref RedditClientId
         REDDIT_CLIENT_SECRET: !Ref RedditClientSecret
         DONWLOAD_HLS_URL: "https://downloadhlsurlgoeshere.com"
+        BSKY_USERNAME: '{{resolve:ssm:/videohunter/bsky/username:1}}'
+        BSKY_PASSWORD: '{{resolve:ssm:/videohunter/bsky/password:1}}' # It sucks, but it still doesn't support ssm-secure ref apparently. Check later
     Tracing: Active
   Api:
     TracingEnabled: true
@@ -350,6 +352,26 @@ Resources:
             Condition:
               Bool:
                 aws:SecureTransport: false
+
+  ScheduledBotFunction:
+    Type: 'AWS::Serverless::Function'
+    Metadata:
+      BuildMethod: go1.x
+    Properties:
+      Handler: main
+      CodeUri: videohunter-bsky
+      Policies: 
+        - DynamoDBCrudPolicy:
+            TableName: !Ref SettingsTable
+      MemorySize: 128
+      Timeout: 30
+      Events:
+        ScheduledEvent:
+          Type: 'Schedule'
+          Properties:
+            Schedule: 'cron(* * * * ? *)' # Every minute
+            Name: 'DailyTrigger'
+            Description: 'Trigger the bot every minute'
 
   ApplicationResourceGroup:
     Type: AWS::ResourceGroups::Group
