@@ -145,7 +145,7 @@ Resources:
     Properties:
       LayerName: ffmpeg-lambda-layer
       Description: FFmpeg for AWS Lambda
-      ContentUri: build/layer
+      ContentUri: build/layer.zip
       CompatibleRuntimes:
         - go1.x
       LicenseInfo: GPL-3.0-or-later

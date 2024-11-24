@@ -32,15 +32,18 @@ tidy:
 	@$(foreach dir,$(MODULE_DIRS),(cd $(dir) && go mod tidy) &&) true
 
 clean:
-	@rm $(foreach function,${FUNCTIONS}, ${APP_FOLDER}/functions/${function}/bootstrap)
+	@rm -f $(foreach function,${FUNCTIONS}, ${APP_FOLDER}/functions/${function}/bootstrap)
 	@rm -rf build
 
 build/layer/bin/ffmpeg:
-	mkdir -p build/layer/bin
+	mkdir -p build/bin
+	cd build && curl https://www.johnvansickle.com/ffmpeg/old-releases/ffmpeg-5.1.1-arm64-static.tar.xz | tar xJ
+	mv build/ffmpeg*/ffmpeg build/ffmpeg*/ffprobe build/bin
+	chmod +x build/bin/ffmpeg build/bin/ffprobe
+	cd build && zip -r9 layer.zip bin
 	rm -rf build/ffmpeg*
-	cd build && curl https://johnvansickle.com/ffmpeg/releases/ffmpeg-release-arm64-static.tar.xz | tar xJ
-	mv build/ffmpeg*/ffmpeg build/ffmpeg*/ffprobe build/layer/bin
-	rm -rf build/ffmpeg*
+	rm -rf build/bin
+	
 
 delete:
 	@sam delete --stack-name ${STACK_NAME} --region ${REGION} 
