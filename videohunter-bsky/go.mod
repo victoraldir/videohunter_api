@@ -7,7 +7,11 @@ require (
 	go.uber.org/mock v0.5.0
 )
 
-require github.com/jmespath/go-jmespath v0.4.0 // indirect
+require (
+	github.com/jmespath/go-jmespath v0.4.0 // indirect
+	github.com/kr/pretty v0.1.0 // indirect
+	gopkg.in/check.v1 v1.0.0-20190902080502-41f04d3bba15 // indirect
+)
 
 require (
 	github.com/aws/aws-lambda-go v1.47.0

@@ -25,7 +25,7 @@ build-sam: build build/layer/bin/ffmpeg
 	@sam build
 
 test:
-	@cd ${APP_FOLDER} && go test -tags=unit -race -coverprofile=../coverage.txt -covermode=atomic ./...
+	@cd ${APP_FOLDER} && go test -tags=unit -race -coverprofile=../coverage.txt -covermode=atomic -timeout 5s ./...
 
 .PHONY: tidy
 tidy:
