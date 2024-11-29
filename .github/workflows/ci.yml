@@ -22,6 +22,10 @@ jobs:
       - name: Check out code into the Go module directory
         uses: actions/checkout@v2
 
+      - name: Install staticcheck
+        if: matrix.go == '1.21'
+        run: go get honnef.co/go/tools/cmd/staticcheck
+
       - name: Run linter
         if: matrix.go == '1.21'
         run: make lint
