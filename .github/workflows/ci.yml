@@ -24,7 +24,7 @@ jobs:
 
       - name: Install staticcheck
         if: matrix.go == '1.21'
-        run: go get honnef.co/go/tools/cmd/staticcheck
+        run: go install honnef.co/go/tools/cmd/staticcheck@latest
 
       - name: Run linter
         if: matrix.go == '1.21'
