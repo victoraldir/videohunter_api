@@ -11,7 +11,7 @@ jobs:
     strategy:
       matrix:
         go:
-          - "1.21"
+          - "1.23"
     steps:
       - name: Set up Go ${{ matrix.go }}
         uses: actions/setup-go@v2
@@ -23,11 +23,11 @@ jobs:
         uses: actions/checkout@v2
 
       - name: Install staticcheck
-        if: matrix.go == '1.21'
+        if: matrix.go == '1.23'
         run: make install-staticcheck
 
       - name: Run linter
-        if: matrix.go == '1.21'
+        if: matrix.go == '1.23'
         run: make lint
 
       - name: Run tests app directory
@@ -35,7 +35,7 @@ jobs:
 
       - name: Upload coverage reports to Codecov
         uses: codecov/codecov-action@v3
-        if: matrix.go == '1.21'
+        if: matrix.go == '1.23'
         with:
           files: ./coverage.txt
         env:
