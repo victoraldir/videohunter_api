@@ -25,7 +25,7 @@ build-sam: build build/layer/bin/ffmpeg
 	@sam build
 
 test:
-	@cd ${APP_FOLDER} && go test -tags=unit -race -coverprofile=../coverage.txt -covermode=atomic ./...
+	@cd ${APP_FOLDER} && go test -tags=unit -race -coverprofile=../coverage.txt -covermode=atomic -timeout 5s ./...
 
 .PHONY: tidy
 tidy:
@@ -73,6 +73,14 @@ STATICCHECK = $(GOBIN)/staticcheck
 GO_FILES := $(shell \
 	       find . '(' -path '*/.*' -o -path './vendor' ')' -prune \
 	       -o -name '*.go' -print | cut -b3-)
+
+.PHONY: lint
+lint: install-staticcheck
+	@staticcheck ./...
+
+.PHONY: install-staticcheck
+install-staticcheck:
+	@go install honnef.co/go/tools/cmd/staticcheck@latest
 
 .PHONY: lint
 lint: $(STATICCHECK)
