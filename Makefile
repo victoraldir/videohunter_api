@@ -75,6 +75,14 @@ GO_FILES := $(shell \
 	       -o -name '*.go' -print | cut -b3-)
 
 .PHONY: lint
+lint: install-staticcheck
+	@staticcheck ./...
+
+.PHONY: install-staticcheck
+install-staticcheck:
+	@go install honnef.co/go/tools/cmd/staticcheck@latest
+
+.PHONY: lint
 lint: $(STATICCHECK)
 	@rm -rf lint.log
 	@echo "Checking formatting..."
