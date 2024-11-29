@@ -26,8 +26,8 @@ jobs:
         if: matrix.go == '1.21'
         run: make lint
 
-      # - name: Run tests app directory
-      #   run: make test
+      - name: Run tests app directory
+        run: make test
 
       - name: Upload coverage reports to Codecov
         uses: codecov/codecov-action@v3
