@@ -10,8 +10,8 @@ import (
 	"github.com/aws/aws-sdk-go/aws/session"
 	dynamodb_aws "github.com/aws/aws-sdk-go/service/dynamodb"
 	"github.com/victoraldir/myvideohunterbsky/repository/dynamodb"
-	"github.com/victoraldir/myvideohunterbsky/services/bsky"
 	"github.com/victoraldir/myvideohunterbsky/usecase"
+	"github.com/victoraldir/myvideohuntershared/services/bsky"
 )
 
 type fetchPostHandler struct {

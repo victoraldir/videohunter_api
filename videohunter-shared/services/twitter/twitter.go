@@ -8,9 +8,9 @@ import (
 	"net/http"
 	"regexp"
 
-	"github.com/victoraldir/myvideohunterapi/adapters/httpclient"
 	"github.com/victoraldir/myvideohunterapi/domain"
 	"github.com/victoraldir/myvideohunterapi/utils"
+	shared_domain "github.com/victoraldir/myvideohuntershared/domain"
 )
 
 const (
@@ -37,12 +37,16 @@ const (
 	POST HttpMethod = "POST"
 )
 
+type HttpClient interface {
+	Do(req *http.Request) (*http.Response, error)
+}
+
 type twitterDownloaderRepository struct {
-	client  httpclient.HttpClient
+	client  HttpClient
 	headers map[HeaderKey]string
 }
 
-func NewTwitterDownloaderRepository(client httpclient.HttpClient) *twitterDownloaderRepository {
+func NewTwitterDownloaderRepository(client HttpClient) *twitterDownloaderRepository {
 
 	headers := map[HeaderKey]string{
 		UserAgent: crawlerUserAgent,
@@ -54,7 +58,7 @@ func NewTwitterDownloaderRepository(client httpclient.HttpClient) *twitterDownlo
 	}
 }
 
-func (t *twitterDownloaderRepository) DownloadVideo(url string, authToken ...string) (videoDownload *domain.Video, token *string, err error) {
+func (t *twitterDownloaderRepository) DownloadVideo(url string, authToken ...string) (videoDownload *shared_domain.Video, token *string, err error) {
 	videoId := utils.GetVideoId(url)
 	var currentToken *string
 
@@ -91,7 +95,7 @@ func (t *twitterDownloaderRepository) DownloadVideo(url string, authToken ...str
 		return nil, nil, fmt.Errorf("no video found")
 	}
 
-	var video domain.Video
+	var video shared_domain.Video
 
 	for _, videoIn := range *videoList {
 		video = videoIn.Video

@@ -1,6 +1,6 @@
 require (
 	github.com/aws/aws-lambda-go v1.47.0
-	github.com/stretchr/testify v1.9.0
+	github.com/stretchr/testify v1.10.0
 	go.uber.org/mock v0.5.0
 	golang.org/x/exp v0.0.0-20241108190413-2d47ceb2692f
 )
@@ -23,6 +23,4 @@ replace gopkg.in/yaml.v2 => gopkg.in/yaml.v2 v2.2.8
 
 module github.com/victoraldir/myvideohunterapi
 
-go 1.22.1
-
-toolchain go1.23.1
+go 1.23.4

@@ -37,6 +37,33 @@ func IsRedditUrl(redditUrl string) bool {
 	return true
 }
 
+func IsBskyUrl(bskyUrl string) bool {
+
+	if bskyUrl == "" {
+		return false
+	}
+
+	url, err := url.Parse(bskyUrl)
+
+	if err != nil {
+		return false
+	}
+
+	if url.Host != "bsky.app" {
+		return false
+	}
+
+	if url.Scheme != "https" {
+		return false
+	}
+
+	if url.Path == "" {
+		return false
+	}
+
+	return true
+}
+
 func IsTwitterUrl(twitterUrl string) bool {
 
 	if twitterUrl == "" {
@@ -145,4 +172,17 @@ func NormalizeVideoUrl(videoUrl string) string {
 	url.RawQuery = ""
 
 	return url.String()
+}
+
+func UrlToUriAt(url string) string {
+
+	//https://bsky.app/profile/fun-viral-vids.bsky.social/post/
+	// at://fun-viral-vids.bsky.social/app.bsky.feed.post/3ldnrtdet3c2e
+
+	urlSplit := strings.Split(url, urlVideoSeparator)
+
+	uriAt := "at://" + urlSplit[4] + "/app.bsky.feed.post/" + urlSplit[len(urlSplit)-1]
+
+	return uriAt
+
 }

@@ -1,5 +1,7 @@
 package domain
 
+import "github.com/victoraldir/myvideohuntershared/domain"
+
 type KeySetting string
 
 const (
@@ -12,7 +14,7 @@ type Settings struct {
 }
 
 type VideoList []struct {
-	Video
+	domain.Video
 }
 
 type Video struct {

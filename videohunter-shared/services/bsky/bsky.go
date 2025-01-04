@@ -11,30 +11,34 @@ import (
 	"time"
 
 	"github.com/enescakir/emoji"
-	"github.com/victoraldir/myvideohunterbsky/domain"
-	"github.com/victoraldir/myvideohunterbsky/services"
+	"github.com/victoraldir/myvideohunterapi/utils"
+
+	shared_domain "github.com/victoraldir/myvideohuntershared/domain"
+	"github.com/victoraldir/myvideohuntershared/services"
 )
 
 const (
 	scheme   = "https"
 	facetUrl = "www.myvideohunter.com/..."
+	host     = "public.api.bsky.app"
 )
 
 type BskyService interface {
-	SearchPostsByMention(mention, since, until string) ([]domain.Post, error)
-	EnrichPost(posts *[]domain.Post) error
-	Reply(post domain.Post) error
-	LoadEmbed(url string) (*domain.EmbedExternal, error)
-	GetPostsByUris(uris []string) ([]domain.Url, error)
-	Login() (*domain.Session, error)
-	RefreshSession(session *domain.Session) (*domain.Session, error)
-	SetSession(session *domain.Session)
+	SearchPostsByMention(mention, since, until string) ([]shared_domain.Post, error)
+	EnrichPost(posts *[]shared_domain.Post) error
+	Reply(post shared_domain.Post) error
+	LoadEmbed(url string) (*shared_domain.EmbedExternal, error)
+	GetPostsByUris(uris []string) ([]shared_domain.Url, error)
+	GetPostsByUrisAPI(uris []string) ([]shared_domain.Post, error)
+	Login() (*shared_domain.Session, error)
+	RefreshSession(session *shared_domain.Session) (*shared_domain.Session, error)
+	SetSession(session *shared_domain.Session)
 	IsSessionExpired() bool
 }
 
 type bskyService struct {
 	client   services.HttpClient
-	session  *domain.Session
+	session  *shared_domain.Session
 	userName string
 	password string
 }
@@ -47,7 +51,7 @@ func NewBskyService(client services.HttpClient, username, password string) *bsky
 	}
 }
 
-func (b *bskyService) SearchPostsByMention(mention, since, until string) ([]domain.Post, error) {
+func (b *bskyService) SearchPostsByMention(mention, since, until string) ([]shared_domain.Post, error) {
 
 	// curl --location 'https://public.api.bsky.app/xrpc/app.bsky.feed.searchPosts?q=%22%40myvideohunter.com%22' --header 'Authorization: Bearer token'
 	slog.Debug("Searching posts by mention: %s", slog.String("mention", mention))
@@ -83,7 +87,7 @@ func (b *bskyService) SearchPostsByMention(mention, since, until string) ([]doma
 	}
 
 	// Unmarshal response
-	posts := domain.Posts{}
+	posts := shared_domain.Posts{}
 
 	defer resp.Body.Close()
 	err = json.NewDecoder(resp.Body).Decode(&posts)
@@ -97,7 +101,7 @@ func (b *bskyService) SearchPostsByMention(mention, since, until string) ([]doma
 	return posts.Posts, nil
 }
 
-func (b *bskyService) EnrichPost(posts *[]domain.Post) error {
+func (b *bskyService) EnrichPost(posts *[]shared_domain.Post) error {
 
 	// curl --location --globoff 'https://myvideohunter.com/prod/url/batch'
 
@@ -115,7 +119,7 @@ func (b *bskyService) EnrichPost(posts *[]domain.Post) error {
 	}
 
 	// create a map of urls
-	urlMap := make(map[string]domain.Url)
+	urlMap := make(map[string]shared_domain.Url)
 	for i := 0; i < len(urls); i++ {
 		urlMap[urls[i].Uri] = urls[i]
 	}
@@ -134,7 +138,7 @@ func (b *bskyService) EnrichPost(posts *[]domain.Post) error {
 	return nil
 }
 
-func (b *bskyService) GetPostsByUris(uris []string) ([]domain.Url, error) {
+func (b *bskyService) GetPostsByUris(uris []string) ([]shared_domain.Url, error) {
 
 	slog.Debug("Getting posts by uris", slog.Any("uris", uris))
 
@@ -160,7 +164,7 @@ func (b *bskyService) GetPostsByUris(uris []string) ([]domain.Url, error) {
 	}
 
 	// Unmarshal response
-	urls := make([]domain.Url, 0)
+	urls := make([]shared_domain.Url, 0)
 
 	err = json.NewDecoder(resp.Body).Decode(&urls)
 	if err != nil {
@@ -173,7 +177,7 @@ func (b *bskyService) GetPostsByUris(uris []string) ([]domain.Url, error) {
 	return urls, nil
 }
 
-func (b *bskyService) Reply(post domain.Post) error {
+func (b *bskyService) Reply(post shared_domain.Post) error {
 
 	url := fmt.Sprintf("https://www.myvideohunter.com/prod/url/%s", post.Url.Id)
 	embed, err := b.LoadEmbed(url)
@@ -181,7 +185,7 @@ func (b *bskyService) Reply(post domain.Post) error {
 		slog.Debug("Error loading embed", slog.Any("error", err))
 	}
 
-	feature := domain.Feature{
+	feature := shared_domain.Feature{
 		Type: "app.bsky.richtext.facet#link",
 		Uri:  url,
 	}
@@ -191,31 +195,31 @@ func (b *bskyService) Reply(post domain.Post) error {
 	byteStart := len(text) - len(facetUrl)
 	byteEnd := len(text)
 
-	facet := domain.Facet{
-		Features: []domain.Feature{feature},
-		Index: domain.Index{
+	facet := shared_domain.Facet{
+		Features: []shared_domain.Feature{feature},
+		Index: shared_domain.Index{
 			ByteStart: byteStart,
 			ByteEnd:   byteEnd,
 		},
 	}
 
-	reply := domain.RecordReply{
+	reply := shared_domain.RecordReply{
 		Text:          text,
 		CreatedAt:     time.Now().Format(time.RFC3339),
 		EmbedExternal: embed,
-		Facets:        []domain.Facet{facet},
-		Reply: domain.Reply{
-			Parent: domain.PostItem{
+		Facets:        []shared_domain.Facet{facet},
+		Reply: shared_domain.Reply{
+			Parent: shared_domain.PostItem{
 				Cid: post.Cid,
 				Uri: post.Uri,
 			},
-			Root: domain.PostItem{
+			Root: shared_domain.PostItem{
 				Cid: post.Record.Reply.Root.Cid,
 				Uri: post.Record.Reply.Root.Uri,
 			},
 		}}
 
-	postReply := domain.PostReply{
+	postReply := shared_domain.PostReply{
 		Record:     reply,
 		Repo:       "did:plc:3jirv55ij45i7lmjjelu5ukn",
 		Collection: "app.bsky.feed.post",
@@ -248,7 +252,7 @@ func (b *bskyService) Reply(post domain.Post) error {
 	return nil
 }
 
-func (b *bskyService) LoadEmbed(url string) (*domain.EmbedExternal, error) {
+func (b *bskyService) LoadEmbed(url string) (*shared_domain.EmbedExternal, error) {
 
 	slog.Debug("Loading embed", slog.String("url", url))
 
@@ -275,9 +279,9 @@ func (b *bskyService) LoadEmbed(url string) (*domain.EmbedExternal, error) {
 	// Get og:description
 	ogDescription := GetMetaTag(body, "og:description")
 
-	embed := domain.EmbedExternal{
+	embed := shared_domain.EmbedExternal{
 		Type: "app.bsky.embed.external",
-		External: domain.External{
+		External: shared_domain.External{
 			Title:       ogTitle,
 			Description: ogDescription,
 			Uri:         url,
@@ -304,7 +308,7 @@ func GetMetaTag(body []byte, metaName string) string {
 	return string(body[start : start+end])
 }
 
-func (b *bskyService) Login() (*domain.Session, error) {
+func (b *bskyService) Login() (*shared_domain.Session, error) {
 	url := "https://bsky.social/xrpc/com.atproto.server.createSession"
 	body := struct {
 		Identifier string `json:"identifier"`
@@ -329,7 +333,7 @@ func (b *bskyService) Login() (*domain.Session, error) {
 	}
 
 	// Unmarshal response
-	session := domain.Session{}
+	session := shared_domain.Session{}
 	json.NewDecoder(resp.Body).Decode(&session)
 
 	defer resp.Body.Close()
@@ -339,7 +343,7 @@ func (b *bskyService) Login() (*domain.Session, error) {
 	return &session, nil
 }
 
-func (b *bskyService) RefreshSession(session *domain.Session) (*domain.Session, error) {
+func (b *bskyService) RefreshSession(session *shared_domain.Session) (*shared_domain.Session, error) {
 	url := "https://bsky.social/xrpc/com.atproto.server.refreshSession"
 
 	req, err := http.NewRequest(http.MethodPost, url, nil)
@@ -363,7 +367,7 @@ func (b *bskyService) RefreshSession(session *domain.Session) (*domain.Session, 
 	}
 
 	// Unmarshal response
-	newSession := domain.Session{}
+	newSession := shared_domain.Session{}
 
 	json.NewDecoder(resp.Body).Decode(&session)
 
@@ -374,7 +378,7 @@ func (b *bskyService) RefreshSession(session *domain.Session) (*domain.Session, 
 	return &newSession, nil
 }
 
-func (b *bskyService) SetSession(session *domain.Session) {
+func (b *bskyService) SetSession(session *shared_domain.Session) {
 	b.session = session
 }
 
@@ -397,4 +401,124 @@ func (b *bskyService) IsSessionExpired() bool {
 	}
 
 	return false
+}
+
+func (r *bskyService) GetPostsByUrisAPI(uris []string) ([]shared_domain.Post, error) {
+
+	slog.Debug("Getting posts by uris", slog.Any("uris", uris))
+
+	req := http.Request{
+		URL: &url.URL{
+			Scheme: scheme,
+			Host:   host,
+			Path:   "/xrpc/app.bsky.feed.getPosts",
+			RawQuery: url.Values{
+				"uris": uris,
+			}.Encode(),
+		},
+	}
+
+	resp, err := r.client.Do(&req)
+	if err != nil {
+		slog.Debug("Error getting posts from bsky", slog.Any("error", err))
+		return nil, err
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		slog.Debug("Error getting posts from bsky", slog.Any("status", resp.Status))
+		return nil, fmt.Errorf("error getting posts from bsky: %s", resp.Status)
+	}
+
+	// Unmarshal response
+	posts := shared_domain.Posts{}
+
+	err = json.NewDecoder(resp.Body).Decode(&posts)
+	if err != nil {
+		slog.Debug("Error unmarshalling response", slog.Any("error", err))
+		return nil, err
+	}
+
+	defer resp.Body.Close()
+
+	return posts.Posts, nil
+
+}
+
+func (r *bskyService) DownloadVideo(urlPost string, authToken ...string) (videoDownload *shared_domain.Video, currentToken *string, err error) {
+
+	videoId := utils.GetVideoId(urlPost)
+	uri := utils.UrlToUriAt(urlPost)
+
+	// https://public.api.bsky.app/xrpc/app.bsky.feed.getPostThread?uri=at://amontis.bsky.social/app.bsky.feed.post/3lecw7cvho22n&depth=10
+	req := http.Request{
+		Method: http.MethodGet,
+		URL: &url.URL{
+			Scheme: scheme,
+			Host:   host,
+			Path:   "/xrpc/app.bsky.feed.getPostThread",
+			RawQuery: url.Values{
+				"uri": []string{uri},
+			}.Encode(),
+		},
+	}
+
+	resp, err := r.client.Do(&req)
+	if err != nil {
+		slog.Debug("Error getting posts from bsky", slog.Any("error", err))
+		return nil, nil, err
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		slog.Debug("Error getting posts from bsky", slog.Any("status", resp.Status))
+		return nil, nil, fmt.Errorf("error getting posts from bsky: %s", resp.Status)
+	}
+
+	// Read response
+	content, err := io.ReadAll(resp.Body)
+	defer resp.Body.Close()
+	if err != nil {
+		slog.Debug("Error reading response", slog.Any("error", err))
+		return nil, nil, err
+	}
+
+	// Unmarshal response
+	root := Root{}
+	json.Unmarshal(content, &root)
+
+	video := ThreadToVideo(&root.Thread, urlPost, videoId)
+
+	return video, nil, nil
+}
+
+func ThreadToVideo(thread *Thread, url, videoId string) *shared_domain.Video {
+
+	video := shared_domain.Video{
+		ThumbnailUrl:     thread.Post.Embed.Thumbnail,
+		OriginalVideoUrl: url,
+		Text:             thread.Post.Record.Text,
+		CreatedAt:        thread.Post.Record.CreatedAt.String(),
+		IdDB:             videoId,
+		Size:             thread.Post.Record.Embed.Video.Size,
+		MimeType:         thread.Post.Record.Embed.Video.MimeType,
+		ExtendedEntities: shared_domain.ExtendedEntities{
+			Media: []shared_domain.Media{
+				{
+					MediaUrl: thread.Post.Embed.Playlist,
+					Type:     "video",
+					VideoInfo: shared_domain.VideoInfo{
+						Variants: []shared_domain.Variants{
+							{
+								Bitrate:     thread.Post.Embed.AspectRatio.Height * thread.Post.Embed.AspectRatio.Width,
+								URL:         thread.Post.Embed.Playlist,
+								ContentType: "video/mp4",
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	return &video
+
 }

@@ -1,6 +1,6 @@
 package services
 
-import "github.com/victoraldir/myvideohunterbsky/domain"
+import "github.com/victoraldir/myvideohuntershared/domain"
 
 type PlatformRepository interface {
 	Login() error
@@ -12,4 +12,8 @@ type PlatformRepository interface {
 
 type VideoDownloaderRepository interface {
 	DownloadVideo(video domain.Video) error
+}
+
+type DownloadRepository interface {
+	DownloadVideo(url string, authToken ...string) (videoDownload *domain.Video, currentToken *string, err error)
 }

@@ -9,7 +9,7 @@ import (
 	"net/http"
 	"net/url"
 
-	"github.com/victoraldir/myvideohunterbsky/domain"
+	"github.com/victoraldir/myvideohuntershared/domain"
 )
 
 type HttpClient interface {
