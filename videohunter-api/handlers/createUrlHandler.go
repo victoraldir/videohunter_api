@@ -7,12 +7,13 @@ import (
 	events_aws "github.com/aws/aws-lambda-go/events"
 	"github.com/victoraldir/myvideohunterapi/usecases"
 	"github.com/victoraldir/myvideohunterapi/utils"
+	"github.com/victoraldir/myvideohuntershared/services/reddit"
 	"golang.org/x/exp/slog"
 )
 
 type CreateUrlHandler struct {
-	VideoDownloaderUseCase  usecases.VideoDownloaderUseCase
-	RedditDownloaderUseCase usecases.VideoDownloaderUseCase
+	VideoDownloaderUseCase usecases.VideoDownloaderUseCase
+	// RedditDownloaderUseCase usecases.VideoDownloaderUseCase
 }
 
 type VideoRequest struct {
@@ -45,7 +46,9 @@ func (h *CreateUrlHandler) Handle(request events_aws.APIGatewayProxyRequest) (ev
 
 	slog.Debug("Downloading video from: ", videoRequest)
 
-	if !utils.IsTwitterUrl(videoRequest.VideoUrl) && !utils.IsRedditUrl(videoRequest.VideoUrl) {
+	if !utils.IsTwitterUrl(videoRequest.VideoUrl) &&
+		!utils.IsRedditUrl(videoRequest.VideoUrl) &&
+		!utils.IsBskyUrl(videoRequest.VideoUrl) {
 		slog.Error("Invalid video_url: ", videoRequest.VideoUrl)
 		return events_aws.APIGatewayProxyResponse{
 			Body:       "Invalid video_url",
@@ -53,17 +56,18 @@ func (h *CreateUrlHandler) Handle(request events_aws.APIGatewayProxyRequest) (ev
 		}, nil
 	}
 
-	var videoDownloaderUseCase usecases.VideoDownloaderUseCase
-
-	if utils.IsRedditUrl(videoRequest.VideoUrl) {
-		videoDownloaderUseCase = h.RedditDownloaderUseCase
-	} else {
-		videoDownloaderUseCase = h.VideoDownloaderUseCase
-	}
-
-	videoResponse, err := videoDownloaderUseCase.Execute(videoRequest.VideoUrl)
+	videoResponse, err := h.VideoDownloaderUseCase.Execute(videoRequest.VideoUrl)
 
 	if err != nil {
+
+		if _, ok := err.(*reddit.InvalidPostError); ok {
+			slog.Error("Error downloading video: ", err)
+			return events_aws.APIGatewayProxyResponse{
+				Body:       "Invalid video_url",
+				StatusCode: 400,
+			}, nil
+		}
+
 		slog.Error("Error downloading video: ", err)
 		return events_aws.APIGatewayProxyResponse{
 			Body:       "Error downloading video",

@@ -10,7 +10,7 @@ import (
 
 var (
 	userName = "myvideohunter.com"
-	password = "bla"
+	password = "@dm1nVh01*"
 )
 
 func TestBskyService_SearchPostsByMention(t *testing.T) {
@@ -138,5 +138,40 @@ func TestBskyService_Login(t *testing.T) {
 		// Assert
 		assert.Nil(t, session)
 		assert.NotNil(t, err)
+	})
+}
+
+func TestBskyService_DownloadVideo(t *testing.T) {
+
+	// Arrange
+	httpClient := &http.Client{}
+	bskyService := NewBskyService(httpClient, userName, password)
+	bskyService.Login()
+
+	t.Run("Should download video", func(t *testing.T) {
+
+		// Act
+		video, _, err := bskyService.DownloadVideo("https://bsky.app/profile/spookieshelbie.bsky.social/post/3legshbjons2h")
+
+		// Assert
+		assert.Nil(t, err)
+		assert.NotNil(t, video)
+	})
+}
+
+func TestBskyService_GetPostThread(t *testing.T) {
+
+	// Arrange
+	httpClient := &http.Client{}
+	bskyService := NewBskyService(httpClient, userName, password)
+
+	t.Run("Should get post thread", func(t *testing.T) {
+
+		// Act
+		video, _, err := bskyService.DownloadVideo("at://amontis.bsky.social/app.bsky.feed.post/3lecw7cvho22n")
+
+		// Assert
+		assert.Nil(t, err)
+		assert.NotNil(t, video)
 	})
 }

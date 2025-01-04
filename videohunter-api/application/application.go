@@ -8,11 +8,11 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
 	dynamodb_aws "github.com/aws/aws-sdk-go/service/dynamodb"
-	"github.com/victoraldir/myvideohunterapi/adapters/bsky"
 	"github.com/victoraldir/myvideohunterapi/adapters/dynamodb"
 	"github.com/victoraldir/myvideohunterapi/adapters/ffmpeg"
-	"github.com/victoraldir/myvideohunterapi/adapters/reddit"
-	"github.com/victoraldir/myvideohunterapi/adapters/twitter"
+	"github.com/victoraldir/myvideohuntershared/services/bsky"
+	"github.com/victoraldir/myvideohuntershared/services/reddit"
+	"github.com/victoraldir/myvideohuntershared/services/twitter"
 
 	config_api "github.com/victoraldir/myvideohunterapi/config"
 	"github.com/victoraldir/myvideohunterapi/handlers"
@@ -43,19 +43,22 @@ func NewAPIGatewayHandler(config config_api.Configuration) *LambdaAPIGatewayAppl
 	// Repositories
 	videoRepository := dynamodb.NewDynamodbVideoRepository(client, config.VideoTableName)
 	settingsRepository := dynamodb.NewDynamoSettingsRepository(client, config.SettingsTableName)
-	downloadeRepository := twitter.NewTwitterDownloaderRepository(httpClient)
+	twitterRepository := twitter.NewTwitterDownloaderRepository(httpClient)
 	redditDownloaderRepository := reddit.NewRedditDownloaderRepository(httpClient)
 	downloadVideoHlsRepository := ffmpeg.NewDownloaderHlsRepository()
-	socialNetworkRepository := bsky.NewBskyDownloaderRepository(httpClient)
+	bskyRepository := bsky.NewBskyService(httpClient, "", "")
+	socialNetworkRepository := bsky.NewBskyService(httpClient, "", "")
 
 	// Use Cases
 	videoDownloaderUseCase := usecases.NewVideoDownloaderUseCase(
 		videoRepository,
-		downloadeRepository,
+		twitterRepository,
+		redditDownloaderRepository,
+		bskyRepository,
 		settingsRepository,
 	)
 
-	redditDownloaderUseCase := usecases.NewRedditVideoDownloaderUseCase(videoRepository, redditDownloaderRepository)
+	// redditDownloaderUseCase := usecases.NewRedditVideoDownloaderUseCase(videoRepository, redditDownloaderRepository)
 
 	downloadVideoHlsUseCase := usecases.NewDownloadVideoHlsUseCase(
 		videoRepository,
@@ -68,8 +71,8 @@ func NewAPIGatewayHandler(config config_api.Configuration) *LambdaAPIGatewayAppl
 
 	// Handlers
 	createUrlHandler := &handlers.CreateUrlHandler{
-		VideoDownloaderUseCase:  videoDownloaderUseCase,
-		RedditDownloaderUseCase: redditDownloaderUseCase,
+		VideoDownloaderUseCase: videoDownloaderUseCase,
+		// RedditDownloaderUseCase: redditDownloaderUseCase,
 	}
 
 	getUrlHandler := &handlers.GetUrlHandler{

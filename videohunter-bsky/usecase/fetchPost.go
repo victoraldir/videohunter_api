@@ -4,9 +4,9 @@ import (
 	"log/slog"
 	"time"
 
-	"github.com/victoraldir/myvideohunterbsky/domain"
 	"github.com/victoraldir/myvideohunterbsky/repository/dynamodb"
-	"github.com/victoraldir/myvideohunterbsky/services/bsky"
+	"github.com/victoraldir/myvideohuntershared/domain"
+	"github.com/victoraldir/myvideohuntershared/services/bsky"
 )
 
 type FetchPostRequest struct {

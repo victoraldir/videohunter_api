@@ -4,7 +4,7 @@ import (
 	"log/slog"
 
 	"github.com/aws/aws-sdk-go/service/dynamodb"
-	"github.com/victoraldir/myvideohunterbsky/domain"
+	"github.com/victoraldir/myvideohuntershared/domain"
 )
 
 //go:generate mockgen -destination=../dynamodb/mocks/mockDynamodDBClient.go -package=dynamodb github.com/victoraldir/myvideohunterbsky/repository/dynamodb DynamodDBClient

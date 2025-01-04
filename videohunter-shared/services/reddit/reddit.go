@@ -9,52 +9,33 @@ import (
 	"strings"
 	"time"
 
-	"github.com/victoraldir/myvideohunterapi/adapters/httpclient"
-	"github.com/victoraldir/myvideohunterapi/domain"
+	shared_domain "github.com/victoraldir/myvideohuntershared/domain"
 )
 
-type Comment struct {
-	Kind string `json:"kind"`
-	Data Data   `json:"data"`
+type InvalidPostError struct {
+	StatusCode int
+	Err        error
 }
 
-type Data struct {
-	Children []Thread `json:"children"`
+func (r *InvalidPostError) Error() string {
+	return r.Err.Error()
 }
 
-type Thread struct {
-	Kind  string `json:"kind"`
-	Media Media  `json:"data"`
-}
-
-type Media struct {
-	SecureMedia SecureMedia `json:"secure_media"`
-	Id          string      `json:"id"`
-	Thumbnail   string      `json:"thumbnail"`
-	Title       string      `json:"title"`
-}
-
-type SecureMedia struct {
-	RedditVideo RedditVideo `json:"reddit_video"`
-}
-
-type RedditVideo struct {
-	HlsUrl           string `json:"hls_url"`
-	BitrateKbps      int    `json:"bitrate_kbps"`
-	ScrubberMediaUrl string `json:"scrubber_media_url"`
+type HttpClient interface {
+	Do(req *http.Request) (*http.Response, error)
 }
 
 type redditDownloaderRepository struct {
-	client httpclient.HttpClient
+	client HttpClient
 }
 
-func NewRedditDownloaderRepository(client httpclient.HttpClient) *redditDownloaderRepository {
+func NewRedditDownloaderRepository(client HttpClient) *redditDownloaderRepository {
 	return &redditDownloaderRepository{
 		client: client,
 	}
 }
 
-func (r *redditDownloaderRepository) DownloadVideo(url string, authToken ...string) (videoDownload *domain.Video, currentToken *string, err error) {
+func (r *redditDownloaderRepository) DownloadVideo(url string, authToken ...string) (videoDownload *shared_domain.Video, currentToken *string, err error) {
 
 	url, err = r.GetJsonUrl(url)
 
@@ -91,43 +72,49 @@ func (r *redditDownloaderRepository) DownloadVideo(url string, authToken ...stri
 	log.Println("Response status", "status", resp.Status)
 	log.Println("Response headers", "headers", resp.Header)
 
-	var comments []Comment
+	var posts []Post
 
-	err = json.NewDecoder(resp.Body).Decode(&comments)
+	err = json.NewDecoder(resp.Body).Decode(&posts)
 
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, &InvalidPostError{StatusCode: 400, Err: err}
 	}
 
-	comment := comments[0]
+	var t3 ChildData
 
-	var t3 Thread
-
-	for _, c := range comment.Data.Children {
-		if c.Kind == "t3" {
-			t3 = c
-			break
+	for _, post := range posts {
+		for _, c := range post.Data.Children {
+			if c.Kind == "t3" {
+				t3 = c.Data
+				break
+			}
 		}
 	}
 
-	fmt.Println(t3)
+	var redditMedia RedditVideo
 
-	video := domain.Video{
-		IdDB:             t3.Media.Id,
+	redditMedia = t3.SecureMedia.RedditVideo
+
+	if redditMedia.HlsURL == "" {
+		redditMedia = t3.Preview.RedditVideoPreview
+	}
+
+	video := shared_domain.Video{
+		IdDB:             t3.ID,
 		OriginalVideoUrl: url,
-		ThumbnailUrl:     t3.Media.SecureMedia.RedditVideo.ScrubberMediaUrl,
+		ThumbnailUrl:     t3.Thumbnail,
 		CreatedAt:        time.Now().String(),
-		Text:             t3.Media.Title,
-		ExtendedEntities: domain.ExtendedEntities{
-			Media: []domain.Media{
+		Text:             t3.Title,
+		ExtendedEntities: shared_domain.ExtendedEntities{
+			Media: []shared_domain.Media{
 				{
-					MediaUrl: t3.Media.SecureMedia.RedditVideo.HlsUrl,
+					MediaUrl: redditMedia.HlsURL,
 					Type:     "video",
-					VideoInfo: domain.VideoInfo{
-						Variants: []domain.Variants{
+					VideoInfo: shared_domain.VideoInfo{
+						Variants: []shared_domain.Variants{
 							{
-								Bitrate:     t3.Media.SecureMedia.RedditVideo.BitrateKbps,
-								URL:         t3.Media.SecureMedia.RedditVideo.HlsUrl,
+								Bitrate:     redditMedia.BitrateKbps,
+								URL:         redditMedia.HlsURL,
 								ContentType: "video/mp4",
 							},
 						},
