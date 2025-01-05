@@ -59,6 +59,7 @@ type Record struct {
 	Facets    []Facet     `json:"facets"`
 	Langs     []string    `json:"langs"`
 	Text      string      `json:"text"`
+	Embeds    []Embed     `json:"embeds"`
 }
 
 type RecordEmbed struct {
@@ -100,6 +101,15 @@ type Index struct {
 
 type Embed struct {
 	Type        string      `json:"$type"`
+	Cid         string      `json:"cid"`
+	Playlist    string      `json:"playlist"`
+	Thumbnail   string      `json:"thumbnail"`
+	AspectRatio AspectRatio `json:"aspectRatio"`
+	Media       Media       `json:"media"`
+	Record      Record      `json:"record"`
+}
+
+type Media struct {
 	Cid         string      `json:"cid"`
 	Playlist    string      `json:"playlist"`
 	Thumbnail   string      `json:"thumbnail"`

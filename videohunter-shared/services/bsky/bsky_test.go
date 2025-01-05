@@ -148,14 +148,56 @@ func TestBskyService_DownloadVideo(t *testing.T) {
 	bskyService := NewBskyService(httpClient, userName, password)
 	bskyService.Login()
 
-	t.Run("Should download video", func(t *testing.T) {
+	t.Run("Should download video tweet with video", func(t *testing.T) {
 
 		// Act
-		video, _, err := bskyService.DownloadVideo("https://bsky.app/profile/spookieshelbie.bsky.social/post/3legshbjons2h")
+		video, _, err := bskyService.DownloadVideo("https://bsky.app/profile/supernigu.bsky.social/post/3leyyexk3fs2h")
 
 		// Assert
 		assert.Nil(t, err)
 		assert.NotNil(t, video)
+		assert.NotEmpty(t, video.ThumbnailUrl)
+		assert.NotEmpty(t, video.ExtendedEntities.Media[0].MediaUrl)
+		assert.NotEmpty(t, video.ExtendedEntities.Media[0].VideoInfo.Variants[0].URL)
+		assert.NotEmpty(t, video.ExtendedEntities.Media[0].VideoInfo.Variants[0].ContentType)
+		assert.NotEmpty(t, video.ExtendedEntities.Media[0].VideoInfo.Variants[0].Bitrate)
+	})
+
+	t.Run("Should download video tweet mention video", func(t *testing.T) {
+		// Act
+		video, _, err := bskyService.DownloadVideo("https://bsky.app/profile/supernigu.bsky.social/post/3leyygf4jdc2h")
+
+		// Assert
+		assert.Nil(t, err)
+		assert.NotNil(t, video)
+		assert.NotEmpty(t, video.ThumbnailUrl)
+		assert.NotEmpty(t, video.ExtendedEntities.Media[0].MediaUrl)
+		assert.NotEmpty(t, video.ExtendedEntities.Media[0].VideoInfo.Variants[0].URL)
+		assert.NotEmpty(t, video.ExtendedEntities.Media[0].VideoInfo.Variants[0].ContentType)
+		assert.NotEmpty(t, video.ExtendedEntities.Media[0].VideoInfo.Variants[0].Bitrate)
+	})
+
+	t.Run("Should download video tweet mention video with video", func(t *testing.T) {
+		// Act
+		video, _, err := bskyService.DownloadVideo("https://bsky.app/profile/supernigu.bsky.social/post/3leyyi5xdi22h")
+
+		// Assert
+		assert.Nil(t, err)
+		assert.NotNil(t, video)
+		assert.NotEmpty(t, video.ThumbnailUrl)
+		assert.NotEmpty(t, video.ExtendedEntities.Media[0].MediaUrl)
+		assert.NotEmpty(t, video.ExtendedEntities.Media[0].VideoInfo.Variants[0].URL)
+		assert.NotEmpty(t, video.ExtendedEntities.Media[0].VideoInfo.Variants[0].ContentType)
+		assert.NotEmpty(t, video.ExtendedEntities.Media[0].VideoInfo.Variants[0].Bitrate)
+	})
+
+	t.Run("Should not downalod video. No video found", func(t *testing.T) {
+		// Act
+		video, _, err := bskyService.DownloadVideo("https://bsky.app/profile/supernigu.bsky.social/post/3leyydaejec2h")
+
+		// Assert
+		assert.NotNil(t, err)
+		assert.Nil(t, video)
 	})
 }
 
