@@ -485,6 +485,10 @@ func (r *bskyService) DownloadVideo(urlPost string, authToken ...string) (videoD
 	root := Root{}
 	json.Unmarshal(content, &root)
 
+	if root.Thread.Post.Embed.Type == "" {
+		return nil, nil, fmt.Errorf("no video found")
+	}
+
 	video := ThreadToVideo(&root.Thread, urlPost, videoId)
 
 	return video, nil, nil
@@ -492,24 +496,50 @@ func (r *bskyService) DownloadVideo(urlPost string, authToken ...string) (videoD
 
 func ThreadToVideo(thread *Thread, url, videoId string) *shared_domain.Video {
 
+	var media Media
+
+	if thread.Post.Embed.Type == "app.bsky.embed.video#view" {
+		media = Media{
+			AspectRatio: AspectRatio{
+				Height: thread.Post.Embed.AspectRatio.Height,
+				Width:  thread.Post.Embed.AspectRatio.Width,
+			},
+			Playlist:  thread.Post.Embed.Playlist,
+			Thumbnail: thread.Post.Embed.Thumbnail,
+		}
+	} else if thread.Post.Embed.Type == "app.bsky.embed.record#view" {
+		embed := thread.Post.Embed.Record.Embeds[0]
+
+		media = Media{
+			AspectRatio: AspectRatio{
+				Height: embed.AspectRatio.Height,
+				Width:  embed.AspectRatio.Width,
+			},
+			Playlist:  embed.Playlist,
+			Thumbnail: embed.Thumbnail,
+		}
+	} else {
+		media = thread.Post.Embed.Media
+	}
+
 	video := shared_domain.Video{
-		ThumbnailUrl:     thread.Post.Embed.Thumbnail,
+		ThumbnailUrl:     media.Thumbnail,
 		OriginalVideoUrl: url,
 		Text:             thread.Post.Record.Text,
 		CreatedAt:        thread.Post.Record.CreatedAt.String(),
 		IdDB:             videoId,
 		Size:             thread.Post.Record.Embed.Video.Size,
-		MimeType:         thread.Post.Record.Embed.Video.MimeType,
+		MimeType:         "video/mp4",
 		ExtendedEntities: shared_domain.ExtendedEntities{
 			Media: []shared_domain.Media{
 				{
-					MediaUrl: thread.Post.Embed.Playlist,
+					MediaUrl: media.Playlist,
 					Type:     "video",
 					VideoInfo: shared_domain.VideoInfo{
 						Variants: []shared_domain.Variants{
 							{
-								Bitrate:     thread.Post.Embed.AspectRatio.Height * thread.Post.Embed.AspectRatio.Width,
-								URL:         thread.Post.Embed.Playlist,
+								Bitrate:     media.AspectRatio.Height * media.AspectRatio.Width,
+								URL:         media.Playlist,
 								ContentType: "video/mp4",
 							},
 						},

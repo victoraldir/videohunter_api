@@ -3,7 +3,8 @@ package reddit
 import (
 	"encoding/json"
 	"fmt"
-	"log"
+	"io"
+	"log/slog"
 	"net/http"
 	"os"
 	"strings"
@@ -40,7 +41,7 @@ func (r *redditDownloaderRepository) DownloadVideo(url string, authToken ...stri
 	url, err = r.GetJsonUrl(url)
 
 	if err != nil {
-		log.Println("Error getting json url", "error", err)
+		slog.Error("Error getting json url", "error", err)
 		return nil, nil, err
 	}
 
@@ -49,35 +50,41 @@ func (r *redditDownloaderRepository) DownloadVideo(url string, authToken ...stri
 	basicAuth, err := r.GetAuthToken()
 
 	if err != nil {
-		log.Println("Error getting auth token", "error", err)
+		slog.Error("Error getting auth token", "error", err)
 		return nil, nil, err
 	}
 
 	req.Header.Set("Authorization", basicAuth)
 
 	if err != nil {
-		log.Println("Error creating request", "error", err)
+		slog.Error("Error creating request", "error", err)
 		return nil, nil, err
 	}
 
 	resp, err := r.client.Do(req)
-
 	if err != nil {
-		log.Println("Error making request", "error", err)
+		slog.Error("Error making request", "error", err)
 		return nil, nil, err
 	}
 
-	defer resp.Body.Close()
+	if resp.StatusCode != 200 {
+		return nil, nil, &InvalidPostError{StatusCode: resp.StatusCode, Err: fmt.Errorf("invalid status code")}
+	}
 
-	log.Println("Response status", "status", resp.Status)
-	log.Println("Response headers", "headers", resp.Header)
+	defer resp.Body.Close()
+	content, err := io.ReadAll(resp.Body)
+	if err != nil {
+		slog.Error("Error reading response body", "error", err)
+		return nil, nil, err
+	}
+
+	fmt.Println(string(content))
 
 	var posts []Post
-
-	err = json.NewDecoder(resp.Body).Decode(&posts)
-
+	err = json.Unmarshal(content, &posts)
 	if err != nil {
-		return nil, nil, &InvalidPostError{StatusCode: 400, Err: err}
+		slog.Error("Error unmarshalling json", "error", err)
+		return nil, nil, err
 	}
 
 	var t3 ChildData
@@ -91,12 +98,24 @@ func (r *redditDownloaderRepository) DownloadVideo(url string, authToken ...stri
 		}
 	}
 
+	if t3.ID == "" {
+		return nil, nil, &InvalidPostError{StatusCode: 404, Err: fmt.Errorf("invalid post")}
+	}
+
 	var redditMedia RedditVideo
 
 	redditMedia = t3.SecureMedia.RedditVideo
 
 	if redditMedia.HlsURL == "" {
 		redditMedia = t3.Preview.RedditVideoPreview
+	}
+
+	if redditMedia.HlsURL == "" {
+		redditMedia = t3.CrosspostParentList[0].SecureMedia.RedditVideo
+	}
+
+	if redditMedia.HlsURL == "" {
+		return nil, nil, &InvalidPostError{StatusCode: 404, Err: fmt.Errorf("no video found")}
 	}
 
 	video := shared_domain.Video{

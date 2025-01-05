@@ -63,7 +63,7 @@ type ChildData struct {
 	IsCreatedFromAdsUI         bool             `json:"is_created_from_ads_ui"`
 	AuthorPremium              bool             `json:"author_premium"`
 	Thumbnail                  string           `json:"thumbnail"`
-	Edited                     bool             `json:"edited"`
+	Edited                     any              `json:"edited"`
 	AuthorFlairCSSClass        any              `json:"author_flair_css_class"`
 	AuthorFlairRichtext        []any            `json:"author_flair_richtext"`
 	Gildings                   Gildings         `json:"gildings"`
@@ -128,6 +128,7 @@ type ChildData struct {
 	NumCrossposts              int              `json:"num_crossposts"`
 	ModReports                 []any            `json:"mod_reports"`
 	IsVideo                    bool             `json:"is_video"`
+	CrosspostParentList        []ChildData      `json:"crosspost_parent_list"`
 }
 
 type MediaEmbed struct {
