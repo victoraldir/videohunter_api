@@ -118,10 +118,12 @@ func (r *redditDownloaderRepository) DownloadVideo(url string, authToken ...stri
 		return nil, nil, &InvalidPostError{StatusCode: 404, Err: fmt.Errorf("no video found")}
 	}
 
+	tumb := strings.ReplaceAll(t3.Thumbnail, "&amp;", "&")
+
 	video := shared_domain.Video{
 		IdDB:             t3.ID,
 		OriginalVideoUrl: url,
-		ThumbnailUrl:     t3.Thumbnail,
+		ThumbnailUrl:     tumb,
 		CreatedAt:        time.Now().String(),
 		Text:             t3.Title,
 		ExtendedEntities: shared_domain.ExtendedEntities{
