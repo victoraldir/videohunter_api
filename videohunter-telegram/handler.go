@@ -53,6 +53,15 @@ func (h *handler) lambdaHandler(event Event) (map[string]interface{}, error) {
 
 	telegramChatID := telegramMsg.Message.From.ID
 
+	if telegramMsg.Message.Text == "/start" {
+		startMessage := "Welcome to VideoHunter! 🎥 \n\nSend me a Twitter, Bsky or Reddit video URL and I'll send you the video to download."
+		sendMessage(startMessage, telegramChatID)
+		return map[string]interface{}{
+			"statusCode": 200,
+			"body":       "ok",
+		}, nil
+	}
+
 	if telegramMsg.Message.Text == "/help" {
 		helpMessage := "Send me a Twitter, Bsky or Reddit video URL and I'll send you the video to download 🎥"
 		sendMessage(helpMessage, telegramChatID)
@@ -75,8 +84,8 @@ func (h *handler) lambdaHandler(event Event) (map[string]interface{}, error) {
 		log.Println("Invalid URL")
 		sendMessage("Invalid URL", telegramChatID)
 		return map[string]interface{}{
-			"statusCode": 400,
-			"body":       "Invalid URL",
+			"statusCode": 200,
+			"body":       "ok",
 		}, nil
 	}
 
@@ -175,7 +184,7 @@ func sendMessage(message string, chatID int64) {
 
 func isValidURL(url string) bool {
 	// Check if the URL is a valid X (former twitter), Bsky or Reddit video URL
-	regex := regexp.MustCompile(`(https:\/\/twitter\.com\/.*\/status\/\d+)|https:\/\/x\.com\/.*\/status\/\d+|(https:\/\/bsky\.app\/.*\/post\/\d+)|(https:\/\/www\.reddit\.com\/r\/.*\/comments\/.*\/.*\/)`)
+	regex := regexp.MustCompile(`(https:\/\/twitter\.com\/.*\/status\/\d+)|https:\/\/x\.com\/.*\/status\/\d+|(https:\/\/bsky\.app\/.*\/post\/\d+)|(https:\/\/www\.reddit\.com\/r\/.*\/comments\/.*\/.*\/)|(https:\/\/www\.reddit\.com\/r\/.*\/s\/.*)`)
 
 	return regex.MatchString(url)
 }

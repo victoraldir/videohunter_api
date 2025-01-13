@@ -170,10 +170,10 @@ Resources:
 
   TelegramWebhookFunction:
     Type: AWS::Serverless::Function
+    Metadata:
+      BuildMethod: go1.x
     Properties:
-      CodeUri: videohunter-bot/telegram-webhook/
-      Handler: app.lambda_handler
-      Runtime: python3.9
+      CodeUri: videohunter-telegram
       Events:
         Webhook:
           Type: Api
