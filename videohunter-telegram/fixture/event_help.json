@@ -1,0 +1,114 @@
+{
+    "resource":"/telegram-webhook",
+    "path":"/telegram-webhook",
+    "httpMethod":"POST",
+    "headers":{
+       "Accept-Encoding":"gzip, deflate",
+       "CloudFront-Forwarded-Proto":"https",
+       "CloudFront-Is-Desktop-Viewer":"true",
+       "CloudFront-Is-Mobile-Viewer":"false",
+       "CloudFront-Is-SmartTV-Viewer":"false",
+       "CloudFront-Is-Tablet-Viewer":"false",
+       "CloudFront-Viewer-ASN":"16509",
+       "CloudFront-Viewer-Country":"NL",
+       "Content-Type":"application/json",
+       "Host":"vpqsnrj7pf.execute-api.us-east-1.amazonaws.com",
+       "User-Agent":"Amazon CloudFront",
+       "Via":"1.1 0ce4e0ab92519d33ff3c6cca42806b7e.cloudfront.net (CloudFront), 1.1 eb5552d4fb69ca0d0578ffa97b7b08fa.cloudfront.net (CloudFront)",
+       "X-Amz-Cf-Id":"5UrCcRsIS17cqoaG3Q1PmFslD5ob2dv9-9P9Xb_slE-CQ0_7RJaycQ==",
+       "X-Amzn-Trace-Id":"Root=1-67824c21-221a6eb535b23a8c15a62c61",
+       "X-Forwarded-For":"91.108.5.11, 15.158.40.149, 18.68.56.46",
+       "X-Forwarded-Port":"443",
+       "X-Forwarded-Proto":"https"
+    },
+    "multiValueHeaders":{
+       "Accept-Encoding":[
+          "gzip, deflate"
+       ],
+       "CloudFront-Forwarded-Proto":[
+          "https"
+       ],
+       "CloudFront-Is-Desktop-Viewer":[
+          "true"
+       ],
+       "CloudFront-Is-Mobile-Viewer":[
+          "false"
+       ],
+       "CloudFront-Is-SmartTV-Viewer":[
+          "false"
+       ],
+       "CloudFront-Is-Tablet-Viewer":[
+          "false"
+       ],
+       "CloudFront-Viewer-ASN":[
+          "16509"
+       ],
+       "CloudFront-Viewer-Country":[
+          "NL"
+       ],
+       "Content-Type":[
+          "application/json"
+       ],
+       "Host":[
+          "vpqsnrj7pf.execute-api.us-east-1.amazonaws.com"
+       ],
+       "User-Agent":[
+          "Amazon CloudFront"
+       ],
+       "Via":[
+          "1.1 0ce4e0ab92519d33ff3c6cca42806b7e.cloudfront.net (CloudFront), 1.1 eb5552d4fb69ca0d0578ffa97b7b08fa.cloudfront.net (CloudFront)"
+       ],
+       "X-Amz-Cf-Id":[
+          "5UrCcRsIS17cqoaG3Q1PmFslD5ob2dv9-9P9Xb_slE-CQ0_7RJaycQ=="
+       ],
+       "X-Amzn-Trace-Id":[
+          "Root=1-67824c21-221a6eb535b23a8c15a62c61"
+       ],
+       "X-Forwarded-For":[
+          "91.108.5.11, 15.158.40.149, 18.68.56.46"
+       ],
+       "X-Forwarded-Port":[
+          "443"
+       ],
+       "X-Forwarded-Proto":[
+          "https"
+       ]
+    },
+    "queryStringParameters":"None",
+    "multiValueQueryStringParameters":"None",
+    "pathParameters":"None",
+    "stageVariables":"None",
+    "requestContext":{
+       "resourceId":"l1o42t",
+       "resourcePath":"/telegram-webhook",
+       "httpMethod":"POST",
+       "extendedRequestId":"EODVWF0WIAMEX1Q=",
+       "requestTime":"11/Jan/2025:10:46:57 +0000",
+       "path":"/prod/telegram-webhook",
+       "accountId":"915887201635",
+       "protocol":"HTTP/1.1",
+       "stage":"prod",
+       "domainPrefix":"vpqsnrj7pf",
+       "requestTimeEpoch":1736592417878,
+       "requestId":"0e965a8e-97b2-4df9-98e2-abe0ccb1edff",
+       "identity":{
+          "cognitoIdentityPoolId":"None",
+          "accountId":"None",
+          "cognitoIdentityId":"None",
+          "caller":"None",
+          "sourceIp":"15.158.40.149",
+          "principalOrgId":"None",
+          "accessKey":"None",
+          "cognitoAuthenticationType":"None",
+          "cognitoAuthenticationProvider":"None",
+          "userArn":"None",
+          "userAgent":"Amazon CloudFront",
+          "user":"None"
+       },
+       "domainName":"vpqsnrj7pf.execute-api.us-east-1.amazonaws.com",
+       "deploymentId":"aq3idl",
+       "apiId":"vpqsnrj7pf"
+    },
+    "body":"{\"update_id\":186263720,\n\"message\":{\"message_id\":12408,\"from\":{\"id\":855420136,\"is_bot\":false,\"first_name\":\"Victor\",\"last_name\":\"Aldir\",\"username\":\"victoraldir\",\"language_code\":\"en\"},\"chat\":{\"id\":855420136,\"first_name\":\"Victor\",\"last_name\":\"Aldir\",\"username\":\"victoraldir\",\"type\":\"private\"},\"date\":1736592417,\"text\":\"/help\",\"entities\":[{\"offset\":0,\"length\":12,\"type\":\"bot_command\"}]}}",
+    "isBase64Encoded":false
+ }

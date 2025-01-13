@@ -4,4 +4,5 @@ use (
 	./videohunter-api
 	./videohunter-bsky
 	./videohunter-shared
+	./videohunter-telegram
 )
