@@ -46,7 +46,7 @@ func (h *handler) lambdaHandler(event Event) (map[string]interface{}, error) {
 	if telegramMsg.Message.Text == "" {
 		log.Println("Key 'message' not found in the body.")
 		return map[string]interface{}{
-			"statusCode": 400,
+			"statusCode": 200,
 			"body":       "Key 'message' not found in the body",
 		}, nil
 	}
@@ -89,9 +89,9 @@ func (h *handler) lambdaHandler(event Event) (map[string]interface{}, error) {
 		}, nil
 	}
 
-	urlTwitter := telegramMsg.Message.Text
+	urlVideo := strings.TrimSpace(telegramMsg.Message.Text)
 
-	data := map[string]string{"video_url": urlTwitter}
+	data := map[string]string{"video_url": urlVideo}
 	dataJSON, err := json.Marshal(data)
 	if err != nil {
 		log.Println("Error marshalling data:", err)
