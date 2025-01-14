@@ -111,6 +111,7 @@ func TestMainValidUrl(t *testing.T) {
 		"https://twitter.com/elonmusk/status/1877806319119278422",
 		"https://bsky.app/profile/obrasilquedeucerto.com.br/post/3lfi7by5flc2h",
 		"https://www.reddit.com/r/antitrampo/s/LzWKIr9zmt",
+		"https://www.reddit.com/r/botecodoreddit/s/7dQSEx7Fk6",
 	}
 
 	for _, url := range validUrl {
