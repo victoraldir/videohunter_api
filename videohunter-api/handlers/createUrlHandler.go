@@ -3,6 +3,7 @@ package handlers
 import (
 	"encoding/json"
 	"log"
+	"strings"
 
 	events_aws "github.com/aws/aws-lambda-go/events"
 	"github.com/victoraldir/myvideohunterapi/usecases"
@@ -43,6 +44,9 @@ func (h *CreateUrlHandler) Handle(request events_aws.APIGatewayProxyRequest) (ev
 			StatusCode: 400,
 		}, nil
 	}
+
+	// Trim video_url
+	videoRequest.VideoUrl = strings.TrimSpace(videoRequest.VideoUrl)
 
 	slog.Debug("Downloading video from: ", videoRequest)
 
