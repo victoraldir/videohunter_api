@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
 	"os"
@@ -126,10 +127,24 @@ func (h *handler) lambdaHandler(event Event) (map[string]interface{}, error) {
 	}
 	defer resp.Body.Close()
 
+	bodyStr, err := io.ReadAll(resp.Body)
+
+	if err != nil {
+		log.Println("Error reading response:", err)
+		sendMessage("Error reading response", telegramChatID)
+		return map[string]interface{}{
+			"statusCode": 200,
+			"body":       "Error reading response",
+		}, nil
+	}
+
+	log.Println("Response Video Hunter API:", string(bodyStr))
+
 	var videoResponse VideoResponse
-	err = json.NewDecoder(resp.Body).Decode(&videoResponse)
+	err = json.Unmarshal(bodyStr, &videoResponse)
 	if err != nil {
 		log.Println("Error decoding response:", err)
+		sendMessage("Error decoding response", telegramChatID)
 		return map[string]interface{}{
 			"statusCode": 200,
 			"body":       "Error decoding response",
