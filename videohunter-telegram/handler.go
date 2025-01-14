@@ -46,7 +46,7 @@ func (h *handler) lambdaHandler(event Event) (map[string]interface{}, error) {
 	if telegramMsg.Message.Text == "" {
 		log.Println("Key 'message' not found in the body.")
 		return map[string]interface{}{
-			"statusCode": 400,
+			"statusCode": 200,
 			"body":       "Key 'message' not found in the body",
 		}, nil
 	}
