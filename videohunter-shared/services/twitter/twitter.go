@@ -102,18 +102,13 @@ func (t *twitterDownloaderRepository) DownloadVideo(url string, authToken ...str
 		break
 	}
 
-	if video.ExtendedEntities.Media == nil || video.ExtendedEntities.Media[0].Type != "video" {
+	media := video.GetMedia()
 
-		if video.QuotedStatus.ExtendedEntities.Media == nil {
-			return nil, nil, fmt.Errorf("no video found")
-		}
-
-		if video.QuotedStatus.ExtendedEntities.Media[0].Type != "video" {
-			return nil, nil, fmt.Errorf("no video found")
-		}
+	if media == nil {
+		return nil, nil, fmt.Errorf("no video found")
 	}
 
-	video.ThumbnailUrl = video.ExtendedEntities.Media[0].MediaUrl
+	video.ThumbnailUrl = media.MediaUrl
 
 	return &video, currentToken, nil
 }
