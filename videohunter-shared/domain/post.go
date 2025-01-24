@@ -117,7 +117,8 @@ type Video struct {
 	CreatedAt        string           `json:"created_at"`
 	ExtendedEntities ExtendedEntities `json:"extended_entities"`
 	Text             string           `json:"full_text"`
-	QuotedStatus     QuotedStatus     `json:"quoted_status"`
+	QuotedStatus     Status           `json:"quoted_status"`
+	RetweetedStatus  Status           `json:"retweeted_status"`
 	Path             string           `json:"path"`
 }
 
@@ -127,7 +128,7 @@ type Media struct {
 	Type      string    `json:"type"`
 }
 
-type QuotedStatus struct {
+type Status struct {
 	ExtendedEntities ExtendedEntities `json:"extended_entities"`
 	Text             string           `json:"full_text"`
 }
@@ -156,18 +157,26 @@ func (v Video) GetText() string {
 		return v.QuotedStatus.Text
 	}
 
+	if v.RetweetedStatus.ExtendedEntities.Media != nil && v.RetweetedStatus.ExtendedEntities.Media[0].Type == "video" {
+		return v.RetweetedStatus.Text
+	}
+
 	return ""
 }
 
-func (v Video) GetMedia() Media {
+func (v Video) GetMedia() *Media {
 
 	if v.ExtendedEntities.Media != nil && v.ExtendedEntities.Media[0].Type == "video" {
-		return v.ExtendedEntities.Media[0]
+		return &v.ExtendedEntities.Media[0]
 	}
 
 	if v.QuotedStatus.ExtendedEntities.Media != nil && v.QuotedStatus.ExtendedEntities.Media[0].Type == "video" {
-		return v.QuotedStatus.ExtendedEntities.Media[0]
+		return &v.QuotedStatus.ExtendedEntities.Media[0]
 	}
 
-	return Media{}
+	if v.RetweetedStatus.ExtendedEntities.Media != nil && v.RetweetedStatus.ExtendedEntities.Media[0].Type == "video" {
+		return &v.RetweetedStatus.ExtendedEntities.Media[0]
+	}
+
+	return nil
 }

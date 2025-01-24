@@ -130,6 +130,9 @@ func GetVideoId(twitterUrl string) string {
 
 	videoId := strings.Split(twitterUrl, urlVideoSeparator)[len(urlSplit)-1]
 
+	// Remove query params
+	videoId = strings.Split(videoId, "?")[0]
+
 	return videoId
 }
 

@@ -26,33 +26,37 @@ func TestVideoDownloaderUseCase_Execute_Integration(t *testing.T) {
 
 	realHttpClient := &http.Client{}
 
-	// t.Run("Should download video from twitter", func(t *testing.T) {
+	t.Run("Should download video from twitter", func(t *testing.T) {
 
-	// 	setup(t)
-	// 	dynamodDBClientMock.EXPECT().GetItem(gomock.Any()).Return(nil, nil).AnyTimes()
-	// 	dynamodDBClientMock.EXPECT().PutItem(gomock.Any()).Return(nil, nil).AnyTimes()
+		setup(t)
+		dynamodDBClientMock.EXPECT().GetItem(gomock.Any()).Return(nil, nil).AnyTimes()
+		dynamodDBClientMock.EXPECT().PutItem(gomock.Any()).Return(nil, nil).AnyTimes()
 
-	// 	// Arrange
-	// 	videoUrl := "https://twitter.com/gunsnrosesgirl3/status/1792166453849858364"
+		// Arrange
+		videoUrl := "https://x.com/enfuisback/status/1882542726845223422?s=46"
 
-	// 	videoRepository := dynamodb.NewDynamodbVideoRepository(dynamodDBClientMock, "video")
-	// 	settingsRepository := dynamodb.NewDynamoSettingsRepository(dynamodDBClientMock, "settings")
-	// 	downloadeRepository := twitter.NewTwitterDownloaderRepository(realHttpClient)
+		videoRepository := dynamodb.NewDynamodbVideoRepository(dynamodDBClientMock, "video")
+		settingsRepository := dynamodb.NewDynamoSettingsRepository(dynamodDBClientMock, "settings")
+		downloadeRepository := twitter.NewTwitterDownloaderRepository(realHttpClient)
+		bskyRepo := bsky.NewBskyService(realHttpClient, "", "")
+		redditRepo := reddit.NewRedditDownloaderRepository(realHttpClient)
 
-	// 	videoDownloaderUseCase := NewVideoDownloaderUseCase(
-	// 		videoRepository,
-	// 		downloadeRepository,
-	// 		settingsRepository,
-	// 	)
+		videoDownloaderUseCase := NewVideoDownloaderUseCase(
+			videoRepository,
+			downloadeRepository,
+			redditRepo,
+			bskyRepo,
+			settingsRepository,
+		)
 
-	// 	// Act
-	// 	video, err := videoDownloaderUseCase.Execute(videoUrl)
+		// Act
+		video, err := videoDownloaderUseCase.Execute(videoUrl)
 
-	// 	// Assert
-	// 	assert.Nil(t, err)
-	// 	assert.NotNil(t, video)
+		// Assert
+		assert.Nil(t, err)
+		assert.NotNil(t, video)
 
-	// })
+	})
 
 	// t.Run("Should not download video from twitter. Not video midia", func(t *testing.T) {
 

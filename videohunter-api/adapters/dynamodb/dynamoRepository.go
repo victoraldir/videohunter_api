@@ -68,7 +68,7 @@ func (d dynamodbVideoRepository) SaveVideo(video *domain.Video) (*domain.Video, 
 				S: &text,
 			},
 			"thumbnailUrl": {
-				S: &video.ThumbnailUrl,
+				S: &media.MediaUrl,
 			},
 			"createdAt": {
 				S: &video.CreatedAt,
