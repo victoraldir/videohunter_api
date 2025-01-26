@@ -2,6 +2,7 @@ package domain
 
 type Url struct {
 	Id          string `json:"id"`
+	OriginalId  string `json:"original_id"`
 	Thumbnail   string `json:"thumbnail"`
 	Description string `json:"description"`
 	Uri         string `json:"uri"`
@@ -112,6 +113,7 @@ type Video struct {
 	MimeType         string           `json:"mimeType"`
 	Size             int              `json:"size"`
 	IdDB             string           `json:"id_db"`
+	OriginalId       string           `json:"original_id"`
 	OriginalVideoUrl string           `json:"original_video_url"`
 	ThumbnailUrl     string           `json:"media_url_https"`
 	CreatedAt        string           `json:"created_at"`

@@ -121,8 +121,8 @@ func (r *redditDownloaderRepository) DownloadVideo(url string, authToken ...stri
 	tumb := strings.ReplaceAll(t3.Thumbnail, "&amp;", "&")
 
 	video := shared_domain.Video{
-		IdDB:             t3.ID,
 		OriginalVideoUrl: url,
+		OriginalId:       t3.ID,
 		ThumbnailUrl:     tumb,
 		CreatedAt:        time.Now().String(),
 		Text:             t3.Title,

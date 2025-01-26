@@ -19,6 +19,7 @@ type VideoList []struct {
 
 type Video struct {
 	IdDB             string           `json:"id_db"`
+	OriginalId       string           `json:"original_id"`
 	OriginalVideoUrl string           `json:"original_video_url"`
 	ThumbnailUrl     string           `json:"media_url_https"`
 	CreatedAt        string           `json:"created_at"`

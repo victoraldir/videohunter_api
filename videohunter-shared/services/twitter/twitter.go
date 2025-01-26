@@ -109,6 +109,7 @@ func (t *twitterDownloaderRepository) DownloadVideo(url string, authToken ...str
 	}
 
 	video.ThumbnailUrl = media.MediaUrl
+	video.OriginalId = videoId
 
 	return &video, currentToken, nil
 }

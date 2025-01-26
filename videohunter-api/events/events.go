@@ -15,6 +15,7 @@ const (
 type (
 	CreateVideoResponse struct {
 		Id           string `json:"id"`
+		OriginalId   string `json:"original_id"`
 		ThumbnailUrl string `json:"thumbnail_url"`
 		Description  string `json:"description"`
 		Uri          string `json:"uri"`

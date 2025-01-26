@@ -121,7 +121,7 @@ func (b *bskyService) EnrichPost(posts *[]shared_domain.Post) error {
 	// create a map of urls
 	urlMap := make(map[string]shared_domain.Url)
 	for i := 0; i < len(urls); i++ {
-		urlMap[urls[i].Uri] = urls[i]
+		urlMap[urls[i].OriginalId] = urls[i]
 	}
 
 	// Enrich posts
@@ -524,6 +524,7 @@ func ThreadToVideo(thread *Thread, url, videoId string) *shared_domain.Video {
 
 	video := shared_domain.Video{
 		ThumbnailUrl:     media.Thumbnail,
+		OriginalId:       thread.Post.URI,
 		OriginalVideoUrl: url,
 		Text:             thread.Post.Record.Text,
 		CreatedAt:        thread.Post.Record.CreatedAt.String(),
