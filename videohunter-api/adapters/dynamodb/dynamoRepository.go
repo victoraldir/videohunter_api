@@ -61,6 +61,9 @@ func (d dynamodbVideoRepository) SaveVideo(video *domain.Video) (*domain.Video, 
 			"id": {
 				S: &video.IdDB,
 			},
+			"originalId": {
+				S: &video.OriginalId,
+			},
 			"originalVideoUrl": {
 				S: &video.OriginalVideoUrl,
 			},

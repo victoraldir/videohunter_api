@@ -77,13 +77,13 @@ func (b *bskyService) SearchPostsByMention(mention, since, until string) ([]shar
 
 	resp, err := b.client.Do(&req)
 	if err != nil {
-		slog.Debug("Error getting posts from bsky", slog.Any("error", err))
+		slog.Debug("Error getting searchPosts from bsky", slog.Any("error", err))
 		return nil, err
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		slog.Debug("Error getting posts from bsky", slog.Any("status", resp.Status))
-		return nil, fmt.Errorf("error getting posts from bsky: %s", resp.Status)
+		slog.Debug("Error getting searchPosts from bsky", slog.Any("status", resp.Status))
+		return nil, fmt.Errorf("error getting searchPosts from bsky: %s", resp.Status)
 	}
 
 	// Unmarshal response
@@ -92,7 +92,7 @@ func (b *bskyService) SearchPostsByMention(mention, since, until string) ([]shar
 	defer resp.Body.Close()
 	err = json.NewDecoder(resp.Body).Decode(&posts)
 	if err != nil {
-		slog.Debug("Error unmarshalling response", slog.Any("error", err))
+		slog.Debug("Error unmarshalling searchPosts response", slog.Any("error", err))
 		return nil, err
 	}
 
@@ -108,7 +108,9 @@ func (b *bskyService) EnrichPost(posts *[]shared_domain.Post) error {
 	uris := make([]string, 0)
 
 	for i := 0; i < len(*posts); i++ {
-		uris = append(uris, (*posts)[i].Record.Reply.Root.Uri)
+		if (*posts)[i].Record.Reply.Root.Uri != "" {
+			uris = append(uris, (*posts)[i].Record.Reply.Root.Uri)
+		}
 	}
 
 	slog.Debug("Enriching posts", slog.Any("uris", uris))
@@ -150,29 +152,37 @@ func (b *bskyService) GetPostsByUris(uris []string) ([]shared_domain.Url, error)
 
 	bodyBytes, _ := json.Marshal(body)
 
+	fmt.Println(string(bodyBytes))
+
 	req, _ := http.NewRequest(http.MethodPost, "https://myvideohunter.com/prod/url/batch", bytes.NewReader(bodyBytes))
 
 	resp, err := b.client.Do(req)
 	if err != nil {
-		slog.Debug("Error getting posts from bsky", slog.Any("error", err))
+		slog.Debug("Error getting posts in batch from videohunter api", slog.Any("error", err))
 		return nil, err
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		slog.Debug("Error getting posts from bsky", slog.Any("status", resp.Status))
-		return nil, fmt.Errorf("error getting posts from bsky: %s", resp.Status)
+		slog.Debug("Error getting posts in batch from videohunter api", slog.Any("status", resp.Status))
+		return nil, fmt.Errorf("error getting posts in batch from videohunter api: %s", resp.Status)
 	}
 
 	// Unmarshal response
 	urls := make([]shared_domain.Url, 0)
 
-	err = json.NewDecoder(resp.Body).Decode(&urls)
+	bodyStr, err := io.ReadAll(resp.Body)
+	defer resp.Body.Close()
 	if err != nil {
-		slog.Debug("Error unmarshalling response", slog.Any("error", err))
+		slog.Debug("Error reading videohunter api batch response", slog.Any("error", err))
 		return nil, err
 	}
 
-	defer resp.Body.Close()
+	err = json.Unmarshal(bodyStr, &urls)
+
+	if err != nil {
+		slog.Debug("Error unmarshalling videohunter api batch response", slog.Any("error", err))
+		return nil, err
+	}
 
 	return urls, nil
 }
@@ -420,13 +430,13 @@ func (r *bskyService) GetPostsByUrisAPI(uris []string) ([]shared_domain.Post, er
 
 	resp, err := r.client.Do(&req)
 	if err != nil {
-		slog.Debug("Error getting posts from bsky", slog.Any("error", err))
+		slog.Debug("Error calling getPosts from bsky", slog.Any("error", err))
 		return nil, err
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		slog.Debug("Error getting posts from bsky", slog.Any("status", resp.Status))
-		return nil, fmt.Errorf("error getting posts from bsky: %s", resp.Status)
+		slog.Debug("error calling getPosts from bsky", slog.Any("status", resp.Status))
+		return nil, fmt.Errorf("error calling getPosts: %s", resp.Status)
 	}
 
 	// Unmarshal response
@@ -525,6 +535,7 @@ func ThreadToVideo(thread *Thread, url, videoId string) *shared_domain.Video {
 	video := shared_domain.Video{
 		ThumbnailUrl:     media.Thumbnail,
 		OriginalVideoUrl: url,
+		OriginalId:       thread.Post.URI,
 		Text:             thread.Post.Record.Text,
 		CreatedAt:        thread.Post.Record.CreatedAt.String(),
 		IdDB:             videoId,

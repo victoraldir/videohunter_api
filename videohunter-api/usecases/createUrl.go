@@ -81,6 +81,7 @@ func videoToCreateVideoResponse(video *domain.Video) *events.CreateVideoResponse
 
 	videoResponse := &events.CreateVideoResponse{}
 	videoResponse.Id = video.IdDB
+	videoResponse.OriginalId = video.OriginalId
 	videoResponse.Description = video.Text
 	videoResponse.ThumbnailUrl = video.ThumbnailUrl
 	videoResponse.Uri = fmt.Sprintf("/url/%s", video.IdDB)

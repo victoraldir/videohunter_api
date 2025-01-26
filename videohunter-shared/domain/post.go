@@ -113,6 +113,7 @@ type Video struct {
 	Size             int              `json:"size"`
 	IdDB             string           `json:"id_db"`
 	OriginalVideoUrl string           `json:"original_video_url"`
+	OriginalId       string           `json:"original_id"`
 	ThumbnailUrl     string           `json:"media_url_https"`
 	CreatedAt        string           `json:"created_at"`
 	ExtendedEntities ExtendedEntities `json:"extended_entities"`

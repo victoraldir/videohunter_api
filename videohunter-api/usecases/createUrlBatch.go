@@ -33,6 +33,11 @@ func (u *createUrlBatchUseCase) Execute(uris []string) ([]events.CreateVideoResp
 	var videos []domain.Video
 	var remainingVideos []string
 
+	// If uris is greater than 25 return error
+	if len(uris) > 25 {
+		return nil, fmt.Errorf("maximum of 25 uris allowed")
+	}
+
 	// Find videos already in the database
 	for _, uri := range uris {
 		video, err := u.videoRepository.GetVideo(uri)
@@ -60,6 +65,7 @@ func (u *createUrlBatchUseCase) Execute(uris []string) ([]events.CreateVideoResp
 		for _, video := range postsApi {
 			videoDb, err := u.videoRepository.SaveVideo(&domain.Video{
 				OriginalVideoUrl: video.Uri,
+				OriginalId:       video.Uri,
 				ThumbnailUrl:     video.Embed.Thumbnail,
 				Text:             video.Record.Text,
 				CreatedAt:        video.Record.CreatedAt,
@@ -92,6 +98,7 @@ func (u *createUrlBatchUseCase) Execute(uris []string) ([]events.CreateVideoResp
 	for _, video := range videos {
 		responses = append(responses, events.CreateVideoResponse{
 			Id:           video.IdDB,
+			OriginalId:   video.OriginalId,
 			Description:  video.Text,
 			ThumbnailUrl: video.ThumbnailUrl,
 			Uri:          fmt.Sprint("/url/", video.IdDB),
