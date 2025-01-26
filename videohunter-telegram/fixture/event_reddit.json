@@ -1,0 +1,114 @@
+{
+    "resource":"/telegram-webhook",
+    "path":"/telegram-webhook",
+    "httpMethod":"POST",
+    "headers":{
+       "Accept-Encoding":"gzip, deflate",
+       "CloudFront-Forwarded-Proto":"https",
+       "CloudFront-Is-Desktop-Viewer":"true",
+       "CloudFront-Is-Mobile-Viewer":"false",
+       "CloudFront-Is-SmartTV-Viewer":"false",
+       "CloudFront-Is-Tablet-Viewer":"false",
+       "CloudFront-Viewer-ASN":"16509",
+       "CloudFront-Viewer-Country":"NL",
+       "Content-Type":"application/json",
+       "Host":"vpqsnrj7pf.execute-api.us-east-1.amazonaws.com",
+       "User-Agent":"Amazon CloudFront",
+       "Via":"1.1 6c43684b05a77c1925eb58e93105a976.cloudfront.net (CloudFront), 1.1 cf275c3404dbe6c17a831886bac6a64c.cloudfront.net (CloudFront)",
+       "X-Amz-Cf-Id":"ZE8UP88ci_ZcrpoTSQFET0-OL4Ioqwsnjvy-jOx-8VVXgQgrDlKK8w==",
+       "X-Amzn-Trace-Id":"Root=1-6782c4f7-033bbf1b34e4ece56158561e",
+       "X-Forwarded-For":"91.108.5.11, 15.158.40.181, 18.68.56.50",
+       "X-Forwarded-Port":"443",
+       "X-Forwarded-Proto":"https"
+    },
+    "multiValueHeaders":{
+       "Accept-Encoding":[
+          "gzip, deflate"
+       ],
+       "CloudFront-Forwarded-Proto":[
+          "https"
+       ],
+       "CloudFront-Is-Desktop-Viewer":[
+          "true"
+       ],
+       "CloudFront-Is-Mobile-Viewer":[
+          "false"
+       ],
+       "CloudFront-Is-SmartTV-Viewer":[
+          "false"
+       ],
+       "CloudFront-Is-Tablet-Viewer":[
+          "false"
+       ],
+       "CloudFront-Viewer-ASN":[
+          "16509"
+       ],
+       "CloudFront-Viewer-Country":[
+          "NL"
+       ],
+       "Content-Type":[
+          "application/json"
+       ],
+       "Host":[
+          "vpqsnrj7pf.execute-api.us-east-1.amazonaws.com"
+       ],
+       "User-Agent":[
+          "Amazon CloudFront"
+       ],
+       "Via":[
+          "1.1 6c43684b05a77c1925eb58e93105a976.cloudfront.net (CloudFront), 1.1 cf275c3404dbe6c17a831886bac6a64c.cloudfront.net (CloudFront)"
+       ],
+       "X-Amz-Cf-Id":[
+          "ZE8UP88ci_ZcrpoTSQFET0-OL4Ioqwsnjvy-jOx-8VVXgQgrDlKK8w=="
+       ],
+       "X-Amzn-Trace-Id":[
+          "Root=1-6782c4f7-033bbf1b34e4ece56158561e"
+       ],
+       "X-Forwarded-For":[
+          "91.108.5.11, 15.158.40.181, 18.68.56.50"
+       ],
+       "X-Forwarded-Port":[
+          "443"
+       ],
+       "X-Forwarded-Proto":[
+          "https"
+       ]
+    },
+    "queryStringParameters":"None",
+    "multiValueQueryStringParameters":"None",
+    "pathParameters":"None",
+    "stageVariables":"None",
+    "requestContext":{
+       "resourceId":"l1o42t",
+       "resourcePath":"/telegram-webhook",
+       "httpMethod":"POST",
+       "extendedRequestId":"EPO2yGdYoAMETtw=",
+       "requestTime":"11/Jan/2025:19:22:31 +0000",
+       "path":"/prod/telegram-webhook",
+       "accountId":"915887201635",
+       "protocol":"HTTP/1.1",
+       "stage":"prod",
+       "domainPrefix":"vpqsnrj7pf",
+       "requestTimeEpoch":1736623351884,
+       "requestId":"ae05feb5-7760-4164-8a49-9b35f56e17e7",
+       "identity":{
+          "cognitoIdentityPoolId":"None",
+          "accountId":"None",
+          "cognitoIdentityId":"None",
+          "caller":"None",
+          "sourceIp":"15.158.40.181",
+          "principalOrgId":"None",
+          "accessKey":"None",
+          "cognitoAuthenticationType":"None",
+          "cognitoAuthenticationProvider":"None",
+          "userArn":"None",
+          "userAgent":"Amazon CloudFront",
+          "user":"None"
+       },
+       "domainName":"vpqsnrj7pf.execute-api.us-east-1.amazonaws.com",
+       "deploymentId":"aq3idl",
+       "apiId":"vpqsnrj7pf"
+    },
+    "body":"{\"update_id\":186263742,\n\"message\":{\"message_id\":12444,\"from\":{\"id\":855420136,\"is_bot\":false,\"first_name\":\"Victor\",\"last_name\":\"Aldir\",\"username\":\"victoraldir\",\"language_code\":\"en\"},\"chat\":{\"id\":855420136,\"first_name\":\"Victor\",\"last_name\":\"Aldir\",\"username\":\"victoraldir\",\"type\":\"private\"},\"date\":1736623351,\"text\":\"https://www.reddit.com/r/botecodoreddit/comments/1hz1wic/agora_que_eu_fui_chutado_pela_%C3%BAltima_vou_logo/\",\"entities\":[{\"offset\":0,\"length\":108,\"type\":\"url\"}],\"link_preview_options\":{\"url\":\"https://www.reddit.com/r/botecodoreddit/comments/1hz1wic/agora_que_eu_fui_chutado_pela_%C3%BAltima_vou_logo/\"}}}",
+    "isBase64Encoded":false
+ }

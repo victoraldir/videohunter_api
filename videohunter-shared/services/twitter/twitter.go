@@ -8,9 +8,9 @@ import (
 	"net/http"
 	"regexp"
 
-	"github.com/victoraldir/myvideohunterapi/adapters/httpclient"
 	"github.com/victoraldir/myvideohunterapi/domain"
 	"github.com/victoraldir/myvideohunterapi/utils"
+	shared_domain "github.com/victoraldir/myvideohuntershared/domain"
 )
 
 const (
@@ -37,12 +37,16 @@ const (
 	POST HttpMethod = "POST"
 )
 
+type HttpClient interface {
+	Do(req *http.Request) (*http.Response, error)
+}
+
 type twitterDownloaderRepository struct {
-	client  httpclient.HttpClient
+	client  HttpClient
 	headers map[HeaderKey]string
 }
 
-func NewTwitterDownloaderRepository(client httpclient.HttpClient) *twitterDownloaderRepository {
+func NewTwitterDownloaderRepository(client HttpClient) *twitterDownloaderRepository {
 
 	headers := map[HeaderKey]string{
 		UserAgent: crawlerUserAgent,
@@ -54,7 +58,7 @@ func NewTwitterDownloaderRepository(client httpclient.HttpClient) *twitterDownlo
 	}
 }
 
-func (t *twitterDownloaderRepository) DownloadVideo(url string, authToken ...string) (videoDownload *domain.Video, token *string, err error) {
+func (t *twitterDownloaderRepository) DownloadVideo(url string, authToken ...string) (videoDownload *shared_domain.Video, token *string, err error) {
 	videoId := utils.GetVideoId(url)
 	var currentToken *string
 
@@ -91,25 +95,20 @@ func (t *twitterDownloaderRepository) DownloadVideo(url string, authToken ...str
 		return nil, nil, fmt.Errorf("no video found")
 	}
 
-	var video domain.Video
+	var video shared_domain.Video
 
 	for _, videoIn := range *videoList {
 		video = videoIn.Video
 		break
 	}
 
-	if video.ExtendedEntities.Media == nil || video.ExtendedEntities.Media[0].Type != "video" {
+	media := video.GetMedia()
 
-		if video.QuotedStatus.ExtendedEntities.Media == nil {
-			return nil, nil, fmt.Errorf("no video found")
-		}
-
-		if video.QuotedStatus.ExtendedEntities.Media[0].Type != "video" {
-			return nil, nil, fmt.Errorf("no video found")
-		}
+	if media == nil {
+		return nil, nil, fmt.Errorf("no video found")
 	}
 
-	video.ThumbnailUrl = video.ExtendedEntities.Media[0].MediaUrl
+	video.ThumbnailUrl = media.MediaUrl
 
 	return &video, currentToken, nil
 }
