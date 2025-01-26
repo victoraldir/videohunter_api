@@ -13,13 +13,12 @@
     <link rel="apple-touch-icon" sizes="144x144" href="https://www.myvideohunter.com/static/apple-icon-144x144.png">
     <link rel="apple-touch-icon" sizes="152x152" href="https://www.myvideohunter.com/static/apple-icon-152x152.png">
     <link rel="apple-touch-icon" sizes="180x180" href="https://www.myvideohunter.com/static/apple-icon-180x180.png">
-    <link rel="icon" type="image/png" sizes="192x192"  href="https://www.myvideohunter.com/static/android-icon-192x192.png">
+    <link rel="icon" type="image/png" sizes="192x192" href="https://www.myvideohunter.com/static/android-icon-192x192.png">
     <link rel="icon" type="image/png" sizes="32x32" href="https://www.myvideohunter.com/static/favicon-32x32.png">
     <link rel="icon" type="image/png" sizes="96x96" href="https://www.myvideohunter.com/static/favicon-96x96.png">
     <link rel="icon" type="image/png" sizes="16x16" href="https://www.myvideohunter.com/static/favicon-16x16.png">
     <link rel="manifest" href="https://www.myvideohunter.com/static/manifest.json">
-    <meta name="description"
-        content="Download videos from Twitter by mentioning @BaixadorDeVideo. You can also use our app Video Hunter to download videos">
+    <meta name="description" content="Download videos from Twitter by mentioning @BaixadorDeVideo. You can also use our app Video Hunter to download videos">
     <meta property="og:title" content="Video Download" />
     <meta property="og:url" content="/{{ .Video.Id }}" />
     <meta property="og:description" content="{{ .Video.Text}}" />
@@ -32,20 +31,43 @@
     <meta property="twitter:image" content="{{ .Video.ThumbnailUrl }}" />
 
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.1/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        .loading-spinner {
+            display: none;
+            justify-content: center;
+            align-items: center;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            z-index: 1050;
+        }
+        .loading-spinner .spinner-border {
+            width: 3rem;
+            height: 3rem;
+        }
+    </style>
 
     <script>
-        function downloadVideo(videoUrl) {
-            let oReq = new XMLHttpRequest();
+        function showLoadingSpinner() {
+            document.getElementById('loadingSpinner').style.display = 'flex';
+        }
 
-            isTwitter = document.getElementById('IsTwitter').value;
+        function hideLoadingSpinner() {
+            document.getElementById('loadingSpinner').style.display = 'none';
+        }
+
+        function downloadVideo(videoUrl) {
+            showLoadingSpinner();
+            let oReq = new XMLHttpRequest();
+            let isTwitter = document.getElementById('IsTwitter').value;
 
             if (isTwitter != 'true') {
-
-                // Split quey by ? and get the first element
                 videoUrl = videoUrl.split('?')[0];        
-        
-                // Start the download
                 window.location.href = '/prod/download?url=' + videoUrl;
+                hideLoadingSpinner();
                 return;
             }
 
@@ -58,12 +80,13 @@
                 a.href = window.URL.createObjectURL(blob);
                 a.download = fileName;
                 a.dispatchEvent(new MouseEvent('click'));
+                hideLoadingSpinner();
             };
             oReq.open("get", videoUrl, true);
             oReq.send();
             oReq.onreadystatechange = () => {
                 if (oReq.readyState === 4) {
-                    this.isLoading = false
+                    hideLoadingSpinner();
                 }
             }
         }
@@ -78,7 +101,6 @@
         gtag('js', new Date());
 
         gtag('config', 'G-MBT9KLR914');
-        // Disable Google Analytics for this page
         gtag('config', 'G-MBT9KLR914', { 'send_page_view': false });
     </script>
     <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-6526073251385305"
@@ -112,33 +134,33 @@
 
     <div class="container-fluid p-4 bg-secondary text-black text-center">
         <div class="col d-flex justify-content-center">
-            <div class="card  p-0 col-sm-7 border-0 rounded-1 shadow mx-auto mb-3">
-
-                {{ if .Video.IsTwitter }}
-                <video style="max-height:250px; max-width: fit-content; align-self: center; margin-top: 10px;" autoplay>
-                    <source src="{{ .Video.ThumbnailUrl }}" type="video/mp4">
-                    Your browser does not support the video tag.
-                </video>
-                {{ else }}
-                <img src="{{ .Video.ThumbnailUrl }}" class="card-img-top" style="max-height:250px; max-width: fit-content; align-self: center; margin-top: 10px;">
-                {{ end }}
+            <div class="card p-0 col-sm-7 border-0 rounded-1 shadow mx-auto mb-3">
+                <img src="{{ .Video.ThumbnailUrl }}" class="card-img-top" style="max-height:250px; max-width: fit-content; align-self: center; margin-top: 10px;"/>
                 <input type="hidden" id="IsTwitter" value="{{ .Video.IsTwitter }}">
                 <div class="card-body">
                     <a href="{{ .Video.OriginalVideoUrl }}" class="card-title" target="_blank">Original URL</a>
-                  <p class="card-text">{{ .Video.Text }}</p>
-                  <p class="card-text"><small class="text-muted">Last updated 3 mins ago</small></p>
-                  <section>
-                    <div class="d-grid gap-2 col-6 mx-auto">
-                        {{ range $key, $value := .Video.Variants }}
-                        <a onclick="downloadVideo('{{ $value.URL }}')" class="btn btn-primary" type="button">Download: {{ $value.GetVidResFromUrl }}</a>
-                        {{ end }}
-                    </div>
-                  </section>
+                    <p class="card-text">{{ .Video.Text }}</p>
+                    <p class="card-text"><small class="text-muted">Last updated 3 mins ago</small></p>
+                    <section>
+                        <div class="d-grid gap-2 col-6 mx-auto">
+                            {{ range $key, $value := .Video.Variants }}
+                            <a onclick="downloadVideo('{{ $value.URL }}')" class="btn btn-primary" type="button">Download: {{ $value.GetVidResFromUrl }}</a>
+                            {{ end }}
+                        </div>
+                    </section>
                 </div>
-              </div>
+            </div>
         </div>
-
     </div>
+
+    <!-- Loading Spinner -->
+    <div id="loadingSpinner" class="loading-spinner">
+        <div class="spinner-border text-light" role="status">
+            <span class="visually-hidden">Loading...</span>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.1/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 
 </html>

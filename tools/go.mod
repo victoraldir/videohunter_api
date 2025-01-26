@@ -1,6 +1,6 @@
 module github.com/aws-samples/serverless-go-demo/tools
 
-go 1.21
+go 1.23
 
 require honnef.co/go/tools v0.4.5
 

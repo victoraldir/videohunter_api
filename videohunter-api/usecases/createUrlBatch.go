@@ -1,11 +1,13 @@
 package usecases
 
 import (
+	"fmt"
 	"log/slog"
 
 	"github.com/victoraldir/myvideohunterapi/domain"
 	"github.com/victoraldir/myvideohunterapi/events"
 	"github.com/victoraldir/myvideohunterapi/repositories"
+	"github.com/victoraldir/myvideohuntershared/services/bsky"
 )
 
 type CreateUrlBatchUseCase interface {
@@ -13,11 +15,11 @@ type CreateUrlBatchUseCase interface {
 }
 
 type createUrlBatchUseCase struct {
-	socialNetworkRepository repositories.SocialNetworkRepository
+	socialNetworkRepository bsky.BskyService
 	videoRepository         repositories.VideoRepository
 }
 
-func NewCreateUrlBatchUseCase(socialNetworkRepository repositories.SocialNetworkRepository,
+func NewCreateUrlBatchUseCase(socialNetworkRepository bsky.BskyService,
 	videoRepository repositories.VideoRepository) CreateUrlBatchUseCase {
 	return &createUrlBatchUseCase{
 		socialNetworkRepository: socialNetworkRepository,
@@ -49,13 +51,13 @@ func (u *createUrlBatchUseCase) Execute(uris []string) ([]events.CreateVideoResp
 
 	if len(remainingVideos) > 0 {
 		// Fetch video from api
-		videosApi, err := u.socialNetworkRepository.GetPostsByUris(remainingVideos)
+		postsApi, err := u.socialNetworkRepository.GetPostsByUrisAPI(remainingVideos)
 		if err != nil {
 			return nil, err
 		}
 
 		// Save videos to database
-		for _, video := range videosApi {
+		for _, video := range postsApi {
 			videoDb, err := u.videoRepository.SaveVideo(&domain.Video{
 				OriginalVideoUrl: video.Uri,
 				ThumbnailUrl:     video.Embed.Thumbnail,
@@ -65,11 +67,11 @@ func (u *createUrlBatchUseCase) Execute(uris []string) ([]events.CreateVideoResp
 					Media: []domain.Media{
 						{
 							Type:     "video",
-							MediaUrl: video.Embed.Playlist,
+							MediaUrl: video.Uri,
 							VideoInfo: domain.VideoInfo{
 								Variants: []domain.Variants{
 									{
-										URL:         video.Embed.Playlist,
+										URL:         video.Uri,
 										ContentType: "video/mp4",
 									},
 								},
@@ -92,7 +94,7 @@ func (u *createUrlBatchUseCase) Execute(uris []string) ([]events.CreateVideoResp
 			Id:           video.IdDB,
 			Description:  video.Text,
 			ThumbnailUrl: video.ThumbnailUrl,
-			Uri:          video.OriginalVideoUrl,
+			Uri:          fmt.Sprint("/url/", video.IdDB),
 		})
 	}
 
