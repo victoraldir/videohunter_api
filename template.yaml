@@ -24,7 +24,7 @@ Globals:
         REDDIT_CLIENT_SECRET: !Ref RedditClientSecret
         DONWLOAD_HLS_URL: "https://downloadhlsurlgoeshere.com"
         BSKY_USERNAME: '{{resolve:ssm:/videohunter/bsky/username:1}}'
-        BSKY_PASSWORD: '{{resolve:ssm:/videohunter/bsky/password:1}}' # It sucks, but it still doesn't support ssm-secure ref apparently. Check later
+        BSKY_PASSWORD: '{{resolve:ssm:/videohunter/bsky/password:2}}' # It sucks, but it still doesn't support ssm-secure ref apparently. Check later
     Tracing: Active
   Api:
     TracingEnabled: true
