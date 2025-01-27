@@ -60,6 +60,7 @@ func (u *createUrlBatchUseCase) Execute(uris []string) ([]events.CreateVideoResp
 		for _, video := range postsApi {
 			videoDb, err := u.videoRepository.SaveVideo(&domain.Video{
 				OriginalVideoUrl: video.Uri,
+				OriginalId:       video.Uri,
 				ThumbnailUrl:     video.Embed.Thumbnail,
 				Text:             video.Record.Text,
 				CreatedAt:        video.Record.CreatedAt,
@@ -92,6 +93,7 @@ func (u *createUrlBatchUseCase) Execute(uris []string) ([]events.CreateVideoResp
 	for _, video := range videos {
 		responses = append(responses, events.CreateVideoResponse{
 			Id:           video.IdDB,
+			OriginalId:   video.OriginalId,
 			Description:  video.Text,
 			ThumbnailUrl: video.ThumbnailUrl,
 			Uri:          fmt.Sprint("/url/", video.IdDB),

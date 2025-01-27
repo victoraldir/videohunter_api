@@ -80,6 +80,7 @@ func (v *videoDownloaderUseCase) Execute(url string) (*events.CreateVideoRespons
 func videoToCreateVideoResponse(video *domain.Video) *events.CreateVideoResponse {
 
 	videoResponse := &events.CreateVideoResponse{}
+	videoResponse.OriginalId = video.OriginalId
 	videoResponse.Id = video.IdDB
 	videoResponse.Description = video.Text
 	videoResponse.ThumbnailUrl = video.ThumbnailUrl
