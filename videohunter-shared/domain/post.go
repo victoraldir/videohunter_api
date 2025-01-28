@@ -35,13 +35,6 @@ type RecordReply struct {
 	Facets        []Facet        `json:"facets"`
 }
 
-type RootVideo struct {
-	Cid        string     `json:"cid"`
-	Thumbnail  string     `json:"thumbnail"`
-	Playlist   string     `json:"playlist"`
-	AspecRatio AspecRatio `json:"aspectRatio"`
-}
-
 type Author struct {
 	DisplayName string `json:"displayName"`
 	Did         string `json:"did"`
@@ -87,7 +80,6 @@ type Embed struct {
 	Description string     `json:"description"`
 	Cid         string     `json:"cid"`
 	AspecRatio  AspecRatio `json:"aspectRatio"`
-	Video       Video      `json:"video"`
 	Playlist    string     `json:"playlist"`
 	Thumbnail   string     `json:"thumbnail"`
 }
@@ -181,4 +173,8 @@ func (v Video) GetMedia() *Media {
 	}
 
 	return nil
+}
+
+func (v Video) IsVideo() bool {
+	return v.ExtendedEntities.Media != nil && v.ExtendedEntities.Media[0].Type == "video"
 }

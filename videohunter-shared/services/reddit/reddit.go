@@ -78,8 +78,6 @@ func (r *redditDownloaderRepository) DownloadVideo(url string, authToken ...stri
 		return nil, nil, err
 	}
 
-	fmt.Println(string(content))
-
 	var posts []Post
 	err = json.Unmarshal(content, &posts)
 	if err != nil {
@@ -100,6 +98,10 @@ func (r *redditDownloaderRepository) DownloadVideo(url string, authToken ...stri
 
 	if t3.ID == "" {
 		return nil, nil, &InvalidPostError{StatusCode: 404, Err: fmt.Errorf("invalid post")}
+	}
+
+	if !t3.IsVideo {
+		return nil, nil, &InvalidPostError{StatusCode: 404, Err: fmt.Errorf("post is not a video")}
 	}
 
 	var redditMedia RedditVideo

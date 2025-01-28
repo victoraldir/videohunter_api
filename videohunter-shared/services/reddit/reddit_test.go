@@ -14,7 +14,7 @@ func TestRedditDownloaderRepository_DownloadVideo(t *testing.T) {
 		redditDownloaderRepository := NewRedditDownloaderRepository(httpClient)
 
 		// Act
-		video, _, err := redditDownloaderRepository.DownloadVideo("https://www.reddit.com/r/CrazyFuckingVideos/comments/1htn0a4/crazy_road_rage/")
+		video, _, err := redditDownloaderRepository.DownloadVideo("https://www.reddit.com/r/allinspanish/comments/1ic5bms/la_am%C3%A9rica_de_trump_en_menos_de_2_minutos/")
 
 		// Assert
 		assert.Nil(t, err)

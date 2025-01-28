@@ -2,6 +2,7 @@ package utils
 
 import (
 	"encoding/base64"
+	"encoding/json"
 	"net/url"
 	"strings"
 )
@@ -187,5 +188,25 @@ func UrlToUriAt(url string) string {
 	uriAt := "at://" + urlSplit[4] + "/app.bsky.feed.post/" + urlSplit[len(urlSplit)-1]
 
 	return uriAt
+
+}
+
+func DeepCopy(src, dst interface{}) error {
+	bytes, err := json.Marshal(src)
+	if err != nil {
+		return err
+	}
+	return json.Unmarshal(bytes, dst)
+}
+
+func AtUriToUrl(uri string) string {
+
+	// https://bsky.app/profile/<DID>/post/<RKEY>
+
+	uriSplit := strings.Split(uri, "/")
+
+	url := "https://bsky.app/profile/" + uriSplit[2] + "/post/" + uriSplit[4]
+
+	return url
 
 }
