@@ -485,7 +485,7 @@ func (r *bskyService) DownloadVideo(urlPost string, authToken ...string) (videoD
 	root := Root{}
 	json.Unmarshal(content, &root)
 
-	if root.Thread.Post.Embed.Type == "" {
+	if root.Thread.Post.Embed.Type != "app.bsky.embed.video#view" {
 		return nil, nil, fmt.Errorf("no video found")
 	}
 

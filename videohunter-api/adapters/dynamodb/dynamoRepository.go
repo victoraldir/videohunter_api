@@ -37,21 +37,18 @@ func (d dynamodbVideoRepository) SaveVideo(video *domain.Video) (*domain.Video, 
 
 		variantDb := variant
 
-		if variantDb.ContentType == "video/mp4" {
-
-			variants[variant.URL] = &dynamodb.AttributeValue{
-				M: map[string]*dynamodb.AttributeValue{
-					// "bitrate": { // TODO - this is not working
-					// 	N: &variant.Bitrate,
-					// },
-					"url": {
-						S: &variantDb.URL,
-					},
-					"content_type": {
-						S: &variantDb.ContentType,
-					},
+		variants[variant.URL] = &dynamodb.AttributeValue{
+			M: map[string]*dynamodb.AttributeValue{
+				// "bitrate": { // TODO - this is not working
+				// 	N: &variant.Bitrate,
+				// },
+				"url": {
+					S: &variantDb.URL,
 				},
-			}
+				"content_type": {
+					S: &variantDb.ContentType,
+				},
+			},
 		}
 	}
 

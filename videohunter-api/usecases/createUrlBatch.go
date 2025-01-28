@@ -7,6 +7,7 @@ import (
 	"github.com/victoraldir/myvideohunterapi/domain"
 	"github.com/victoraldir/myvideohunterapi/events"
 	"github.com/victoraldir/myvideohunterapi/repositories"
+	"github.com/victoraldir/myvideohunterapi/utils"
 	"github.com/victoraldir/myvideohuntershared/services/bsky"
 )
 
@@ -57,23 +58,33 @@ func (u *createUrlBatchUseCase) Execute(uris []string) ([]events.CreateVideoResp
 		}
 
 		// Save videos to database
-		for _, video := range postsApi {
+		for _, post := range postsApi {
+
+			// mashal, _ := json.Marshal(post)
+
+			// slog.Debug("Saving video", slog.Any("video", string(mashal)))
+
+			// var videoDb domain.Video
+
+			// utils.DeepCopy(&video, &videoDb)
+
 			videoDb, err := u.videoRepository.SaveVideo(&domain.Video{
-				OriginalVideoUrl: video.Uri,
-				OriginalId:       video.Uri,
-				ThumbnailUrl:     video.Embed.Thumbnail,
-				Text:             video.Record.Text,
-				CreatedAt:        video.Record.CreatedAt,
+				OriginalVideoUrl: utils.AtUriToUrl(post.Uri),
+				OriginalId:       post.Uri,
+				ThumbnailUrl:     post.Embed.Thumbnail,
+				Text:             post.Record.Text,
+				CreatedAt:        post.Record.CreatedAt,
 				ExtendedEntities: domain.ExtendedEntities{
 					Media: []domain.Media{
 						{
 							Type:     "video",
-							MediaUrl: video.Uri,
+							MediaUrl: post.Embed.Playlist,
 							VideoInfo: domain.VideoInfo{
 								Variants: []domain.Variants{
 									{
-										URL:         video.Uri,
-										ContentType: "video/mp4",
+										URL:         post.Embed.Playlist,
+										ContentType: post.Embed.Type,
+										Bitrate:     post.Embed.AspecRatio.Height,
 									},
 								},
 							},

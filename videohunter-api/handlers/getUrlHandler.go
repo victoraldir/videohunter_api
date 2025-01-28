@@ -70,6 +70,9 @@ func (h *GetUrlHandler) Handle(request events.APIGatewayProxyRequest) (events.AP
 
 	// Parse the HTML template
 	if err := templateFile.Execute(&htmlBuffer, videoMap); err != nil {
+
+		slog.Error("Error parsing template", "error", err)
+
 		return events.APIGatewayProxyResponse{
 			StatusCode: 500,
 			Body:       "Error",

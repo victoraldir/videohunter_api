@@ -107,6 +107,7 @@ func (v *videoDownloaderUseCase) DownloadVideo(url, videoId string, repo service
 			if err != nil {
 				return nil, err
 			}
+
 			deepCopy(&videoApi, &newVideo)
 		} else {
 			log.Println("authToken not found. Downloading without it...")
