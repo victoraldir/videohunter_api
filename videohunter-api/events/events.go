@@ -52,6 +52,10 @@ func (v *VideoResponseVariant) GetVidResFromUrl() string {
 		return "full quality"
 	}
 
+	if len(splittedUrl) < 7 {
+		return "full quality"
+	}
+
 	if splittedUrl[domainIdx] == "ext_tw_video" {
 
 		if splittedUrl[avcIdx] == "avc1" {
