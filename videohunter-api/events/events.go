@@ -1,7 +1,6 @@
 package events
 
 import (
-	"log/slog"
 	"strings"
 )
 
@@ -46,14 +45,16 @@ func (v *VideoResponseVariant) GetVidResFromUrl() string {
 
 	splittedUrl := strings.Split(v.URL, "/")
 
-	slog.Debug("Splitted URL", "url", v.URL, "splitted", splittedUrl)
-
 	if splittedUrl[redditDomainIdx] == "v.redd.it" || splittedUrl[redditDomainIdx] == "video.bsky.app" {
 		return "full quality"
 	}
 
-	if len(splittedUrl) < 7 {
-		return "full quality"
+	if len(splittedUrl) == 7 {
+		mediaType := strings.Split(splittedUrl[len(splittedUrl)-1], "?")[0]
+
+		if strings.Contains(mediaType, "m3u8") {
+			return ".m3u8"
+		}
 	}
 
 	if splittedUrl[domainIdx] == "ext_tw_video" {

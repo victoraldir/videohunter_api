@@ -74,3 +74,21 @@ func TestVideoResponseVariant_GetVidResFromUrl_RedditUrl(t *testing.T) {
 	assert.Equal(t, "full quality", vidRes, "they should be equal")
 
 }
+
+func TestGetVideoVariant_GetRes_M3u8(t *testing.T) {
+
+	// Arrange
+	url := "https://video.twimg.com/amplify_video/1884339231641759744/pl/zLqjBBxSX9Fsa0xG.m3u8?tag=16"
+	videoResponseVariant := VideoResponseVariant{
+		URL:         url,
+		Bitrate:     832000,
+		ContentType: "test",
+	}
+
+	// Act
+	vidRes := videoResponseVariant.GetVidResFromUrl()
+
+	// Assert
+	assert.Equal(t, ".m3u8", vidRes, "they should be equal")
+
+}

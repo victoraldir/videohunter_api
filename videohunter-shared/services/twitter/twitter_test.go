@@ -9,7 +9,7 @@ import (
 
 func TestTwitterService(t *testing.T) {
 
-	url := "https://x.com/enfuisback/status/1882542726845223422"
+	url := "https://x.com/siteptbr/status/1884560432104370367"
 	httpClient := &http.Client{}
 
 	twitterService := NewTwitterDownloaderRepository(httpClient)
