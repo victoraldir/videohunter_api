@@ -61,13 +61,37 @@
 
         function downloadVideo(videoUrl) {
             showLoadingSpinner();
-            let oReq = new XMLHttpRequest();
             let isTwitter = document.getElementById('IsTwitter').value;
+            let oReq = new XMLHttpRequest();
 
             if (isTwitter != 'true') {
-                videoUrl = videoUrl.split('?')[0];        
-                window.location.href = '/prod/download?url=' + videoUrl;
-                hideLoadingSpinner();
+                videoUrl = videoUrl.split('?')[0];
+                const downloadUrl = '/prod/download?url=' + videoUrl;
+                
+                // Create a link element to trigger the download
+                let a = document.createElement('a');
+                a.style.display = 'none';
+                document.body.appendChild(a);
+                
+                oReq.responseType = 'blob';
+                oReq.onload = function(e) {
+                    if (this.status === 200) {
+                        var blob = e.currentTarget.response;
+                        let currentDate = new Date();
+                        var fileName = 'video_' + currentDate.getTime() + '.mp4';
+                        a.href = window.URL.createObjectURL(blob);
+                        a.download = fileName;
+                        a.click();
+                        document.body.removeChild(a);
+                    }
+                    hideLoadingSpinner();
+                };
+                oReq.onerror = function() {
+                    hideLoadingSpinner();
+                    alert('Download failed. Please try again.');
+                };
+                oReq.open("get", downloadUrl, true);
+                oReq.send();
                 return;
             }
 
