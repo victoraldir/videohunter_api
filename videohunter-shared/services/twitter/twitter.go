@@ -36,22 +36,38 @@ type FxTwitterResponse struct {
 		ID     string `json:"id"`
 		Text   string `json:"text"`
 		Author struct {
-			Name     string `json:"name"`
-			Username string `json:"screen_name"`
+			Name       string `json:"name"`
+			ScreenName string `json:"screen_name"`
 		} `json:"author"`
 		Media struct {
+			All []struct {
+				URL          string  `json:"url"`
+				ThumbnailURL string  `json:"thumbnail_url"`
+				Duration     float64 `json:"duration"`
+				Width        int     `json:"width"`
+				Height       int     `json:"height"`
+				Format       string  `json:"format"`
+				Type         string  `json:"type"`
+				Variants     []struct {
+					ContentType string `json:"content_type"`
+					URL         string `json:"url"`
+					Bitrate     int    `json:"bitrate,omitempty"`
+				} `json:"variants"`
+			} `json:"all"`
 			Videos []struct {
-				URL       string `json:"url"`
-				Type      string `json:"type"`
-				Width     int    `json:"width"`
-				Height    int    `json:"height"`
-				Thumbnail string `json:"thumbnail"`
+				URL          string  `json:"url"`
+				ThumbnailURL string  `json:"thumbnail_url"`
+				Duration     float64 `json:"duration"`
+				Width        int     `json:"width"`
+				Height       int     `json:"height"`
+				Format       string  `json:"format"`
+				Type         string  `json:"type"`
+				Variants     []struct {
+					ContentType string `json:"content_type"`
+					URL         string `json:"url"`
+					Bitrate     int    `json:"bitrate,omitempty"`
+				} `json:"variants"`
 			} `json:"videos"`
-			Photos []struct {
-				URL    string `json:"url"`
-				Width  int    `json:"width"`
-				Height int    `json:"height"`
-			} `json:"photos"`
 		} `json:"media"`
 	} `json:"tweet"`
 }
@@ -134,22 +150,29 @@ func (t *twitterDownloaderRepository) tryFxTwitter(username, videoId string) (*s
 	}
 
 	// Convert to our domain model
+	videoData := fxResp.Tweet.Media.Videos[0]
+
+	// Convert variants from FxTwitter to our format
+	variants := make([]shared_domain.Variants, len(videoData.Variants))
+	for i, variant := range videoData.Variants {
+		variants[i] = shared_domain.Variants{
+			URL:         variant.URL,
+			ContentType: variant.ContentType,
+			Bitrate:     variant.Bitrate,
+		}
+	}
+
 	video := &shared_domain.Video{
 		OriginalId:   videoId,
 		Text:         fxResp.Tweet.Text,
-		ThumbnailUrl: fxResp.Tweet.Media.Videos[0].Thumbnail,
+		ThumbnailUrl: videoData.ThumbnailURL,
 		ExtendedEntities: shared_domain.ExtendedEntities{
 			Media: []shared_domain.Media{
 				{
-					MediaUrl: fxResp.Tweet.Media.Videos[0].URL,
+					MediaUrl: videoData.URL,
 					Type:     "video",
 					VideoInfo: shared_domain.VideoInfo{
-						Variants: []shared_domain.Variants{
-							{
-								URL:         fxResp.Tweet.Media.Videos[0].URL,
-								ContentType: "video/mp4",
-							},
-						},
+						Variants: variants,
 					},
 				},
 			},
