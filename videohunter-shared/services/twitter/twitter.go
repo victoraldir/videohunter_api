@@ -7,34 +7,16 @@ import (
 	"log/slog"
 	"net/http"
 	"regexp"
+	"strings"
 
-	"github.com/victoraldir/myvideohunterapi/domain"
 	"github.com/victoraldir/myvideohunterapi/utils"
 	shared_domain "github.com/victoraldir/myvideohuntershared/domain"
 )
 
 const (
-	crawlerUserAgent = "Mozilla/5.0 (Windows NT 6.3; Win64; x64; rv:76.0) Gecko/20100101 Firefox/76.0','accept' : 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9','accept-language' : 'es-419,es;q=0.9,es-ES;q=0.8,en;q=0.7,en-GB;q=0.6,en-US;q=0.5"
-	activationUrl    = "https://api.twitter.com/1.1/guest/activate.json"
-	apiUrl           = "https://api.twitter.com/1.1/statuses/lookup.json?id=%s&tweet_mode=extended"
-	bearerFileUrl    = "https://twitter.com/i/videos/tweet/%s"
-	bearerTokenExp   = "Bearer ([a-zA-Z0-9%-])+"
-	bearerFileExp    = `src="(.*js)`
-)
-
-type HeaderKey string
-
-const (
-	Authorization HeaderKey = "authorization"
-	UserAgent     HeaderKey = "User-agent"
-	XGuestToken   HeaderKey = "x-guest-token"
-)
-
-type HttpMethod string
-
-const (
-	GET  HttpMethod = "GET"
-	POST HttpMethod = "POST"
+	crawlerUserAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+	// Alternative scraping endpoints
+	fxTwitterUrl = "https://api.fxtwitter.com/%s/status/%s"
 )
 
 type HttpClient interface {
@@ -42,196 +24,265 @@ type HttpClient interface {
 }
 
 type twitterDownloaderRepository struct {
-	client  HttpClient
-	headers map[HeaderKey]string
+	client HttpClient
+}
+
+// FxTwitterResponse represents the response from fxtwitter API
+type FxTwitterResponse struct {
+	Code    int    `json:"code"`
+	Message string `json:"message"`
+	Tweet   struct {
+		URL    string `json:"url"`
+		ID     string `json:"id"`
+		Text   string `json:"text"`
+		Author struct {
+			Name     string `json:"name"`
+			Username string `json:"screen_name"`
+		} `json:"author"`
+		Media struct {
+			Videos []struct {
+				URL       string `json:"url"`
+				Type      string `json:"type"`
+				Width     int    `json:"width"`
+				Height    int    `json:"height"`
+				Thumbnail string `json:"thumbnail"`
+			} `json:"videos"`
+			Photos []struct {
+				URL    string `json:"url"`
+				Width  int    `json:"width"`
+				Height int    `json:"height"`
+			} `json:"photos"`
+		} `json:"media"`
+	} `json:"tweet"`
 }
 
 func NewTwitterDownloaderRepository(client HttpClient) *twitterDownloaderRepository {
-
-	headers := map[HeaderKey]string{
-		UserAgent: crawlerUserAgent,
-	}
-
 	return &twitterDownloaderRepository{
-		client:  client,
-		headers: headers,
+		client: client,
 	}
 }
 
 func (t *twitterDownloaderRepository) DownloadVideo(url string, authToken ...string) (videoDownload *shared_domain.Video, token *string, err error) {
 	videoId := utils.GetVideoId(url)
-	var currentToken *string
+	username := t.extractUsername(url)
 
-	if len(authToken) == 0 {
-		currentToken, err = t.claimNewGuestToken(videoId)
-
-		if err != nil {
-			return nil, nil, err
-		}
+	if username == "" {
+		return nil, nil, fmt.Errorf("could not extract username from URL")
 	}
 
-	if len(authToken) > 0 {
-		t.headers[Authorization] = authToken[0]
-		currentToken = &authToken[0]
+	// Try fxtwitter API first
+	video, err := t.tryFxTwitter(username, videoId)
+	if err == nil && video != nil {
+		return video, nil, nil
 	}
 
-	// Get video status
-	showStatusResp, err := t.showStatus(videoId, t.headers)
-	slog.Debug("/statuses/lookup.json result", "url", url, "response", string(showStatusResp))
+	slog.Debug("fxtwitter failed, trying direct scraping", "error", err)
 
+	// Fallback to direct scraping
+	video, err = t.tryDirectScraping(url)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, fmt.Errorf("all methods failed: %v", err)
 	}
 
-	videoList := &domain.VideoList{}
-
-	err = json.Unmarshal(showStatusResp, videoList)
-
-	if err != nil {
-		return nil, nil, err
-	}
-
-	if len(*videoList) == 0 {
-		return nil, nil, fmt.Errorf("no video found")
-	}
-
-	var video shared_domain.Video
-
-	for _, videoIn := range *videoList {
-		video = videoIn.Video
-		break
-	}
-
-	media := video.GetMedia()
-
-	if media == nil {
-		return nil, nil, fmt.Errorf("no video found")
-	}
-
-	video.ThumbnailUrl = media.MediaUrl
-	video.OriginalId = videoId
-
-	return &video, currentToken, nil
+	return video, nil, nil
 }
 
-func (t *twitterDownloaderRepository) claimNewGuestToken(videoId string) (authToken *string, err error) {
+func (t *twitterDownloaderRepository) extractUsername(url string) string {
+	// Extract username from URL like https://x.com/username/status/123
+	re := regexp.MustCompile(`https?://(?:twitter\.com|x\.com)/([^/]+)/status/`)
+	matches := re.FindStringSubmatch(url)
+	if len(matches) > 1 {
+		return matches[1]
+	}
+	return ""
+}
 
-	// Get bearer file (.js)
-	bearerFile, err := t.getBearerFile(videoId, t.headers)
+func (t *twitterDownloaderRepository) tryFxTwitter(username, videoId string) (*shared_domain.Video, error) {
+	apiUrl := fmt.Sprintf(fxTwitterUrl, username, videoId)
 
+	req, err := http.NewRequest("GET", apiUrl, nil)
 	if err != nil {
 		return nil, err
 	}
 
-	// Get bearer token
-	bearerToken, err := t.getBearerToken(bearerFile, t.headers)
-
-	if err != nil {
-		return nil, err
-	}
-
-	t.headers[Authorization] = bearerToken
-
-	// Activate guest token
-	activation, err := t.activateGuestToken(t.headers)
-
-	if err != nil {
-		return nil, err
-	}
-
-	t.headers[XGuestToken] = activation
-
-	return &bearerToken, nil
-}
-
-func (t *twitterDownloaderRepository) activateGuestToken(headers map[HeaderKey]string) (string, error) {
-
-	activation, err := t.sendRequest(activationUrl, POST, headers)
-
-	if err != nil {
-		return "", err
-	}
-
-	return string(*activation), nil
-}
-
-func (t *twitterDownloaderRepository) getBearerToken(bearerFileUrl string, headers map[HeaderKey]string) (string, error) {
-
-	bearerFileContent, err := t.sendRequest(bearerFileUrl, GET, headers)
-
-	if err != nil {
-		return "", err
-	}
-
-	re := regexp.MustCompile(bearerTokenExp)
-
-	bearerToken := re.FindStringSubmatch(string(*bearerFileContent))[0]
-
-	return bearerToken, nil
-}
-
-func (t *twitterDownloaderRepository) getBearerFile(videoId string, headers map[HeaderKey]string) (string, error) {
-
-	videoUrl := fmt.Sprintf(bearerFileUrl, videoId)
-
-	// get guest token
-	tokenRequest, err := t.sendRequest(videoUrl, GET, headers)
-
-	if err != nil {
-		return "", err
-	}
-
-	re := regexp.MustCompile(bearerFileExp)
-	bearerFile := re.FindStringSubmatch(string(*tokenRequest))[1]
-
-	return bearerFile, nil
-}
-
-func (t *twitterDownloaderRepository) showStatus(videoId string, headers map[HeaderKey]string) ([]byte, error) {
-
-	apiEp := fmt.Sprintf(apiUrl, videoId)
-
-	resp, err := t.sendRequest(apiEp, GET, headers)
-
-	if err != nil {
-		return nil, err
-	}
-
-	return *resp, nil
-}
-
-func (t *twitterDownloaderRepository) sendRequest(url string, method HttpMethod, headers map[HeaderKey]string) (*[]byte, error) {
-
-	// client := &http.Client{}
-
-	req, err := http.NewRequest(string(method), url, nil)
-
-	if err != nil {
-		return nil, err
-	}
-
-	for key, value := range headers {
-		req.Header.Set(string(key), value)
-	}
+	req.Header.Set("User-Agent", crawlerUserAgent)
+	req.Header.Set("Accept", "application/json")
 
 	resp, err := t.client.Do(req)
-
 	if err != nil {
 		return nil, err
 	}
-
 	defer resp.Body.Close()
 
 	if resp.StatusCode != 200 {
-		return nil, fmt.Errorf("status code error: %d %s", resp.StatusCode, resp.Status)
+		return nil, fmt.Errorf("fxtwitter API returned status: %d", resp.StatusCode)
 	}
 
-	// Read the response body
 	body, err := io.ReadAll(resp.Body)
-
 	if err != nil {
 		return nil, err
 	}
 
-	return &body, nil
+	var fxResp FxTwitterResponse
+	err = json.Unmarshal(body, &fxResp)
+	if err != nil {
+		return nil, err
+	}
+
+	if fxResp.Code != 200 || len(fxResp.Tweet.Media.Videos) == 0 {
+		return nil, fmt.Errorf("no video found in fxtwitter response")
+	}
+
+	// Convert to our domain model
+	video := &shared_domain.Video{
+		OriginalId:   videoId,
+		Text:         fxResp.Tweet.Text,
+		ThumbnailUrl: fxResp.Tweet.Media.Videos[0].Thumbnail,
+		ExtendedEntities: shared_domain.ExtendedEntities{
+			Media: []shared_domain.Media{
+				{
+					MediaUrl: fxResp.Tweet.Media.Videos[0].URL,
+					Type:     "video",
+					VideoInfo: shared_domain.VideoInfo{
+						Variants: []shared_domain.Variants{
+							{
+								URL:         fxResp.Tweet.Media.Videos[0].URL,
+								ContentType: "video/mp4",
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	return video, nil
+}
+
+func (t *twitterDownloaderRepository) tryDirectScraping(url string) (*shared_domain.Video, error) {
+	// Convert x.com to twitter.com for better scraping compatibility
+	scrapingUrl := strings.Replace(url, "x.com", "twitter.com", 1)
+
+	req, err := http.NewRequest("GET", scrapingUrl, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Set("User-Agent", crawlerUserAgent)
+	req.Header.Set("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8")
+	req.Header.Set("Accept-Language", "en-US,en;q=0.5")
+
+	resp, err := t.client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != 200 {
+		return nil, fmt.Errorf("direct scraping returned status: %d", resp.StatusCode)
+	}
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	html := string(body)
+
+	// Extract video URL using regex patterns
+	videoUrl := t.extractVideoUrl(html)
+	if videoUrl == "" {
+		return nil, fmt.Errorf("no video URL found in HTML")
+	}
+
+	// Extract text content
+	text := t.extractTweetText(html)
+
+	// Extract thumbnail
+	thumbnail := t.extractThumbnail(html)
+
+	videoId := utils.GetVideoId(url)
+
+	video := &shared_domain.Video{
+		OriginalId:   videoId,
+		Text:         text,
+		ThumbnailUrl: thumbnail,
+		ExtendedEntities: shared_domain.ExtendedEntities{
+			Media: []shared_domain.Media{
+				{
+					MediaUrl: videoUrl,
+					Type:     "video",
+					VideoInfo: shared_domain.VideoInfo{
+						Variants: []shared_domain.Variants{
+							{
+								URL:         videoUrl,
+								ContentType: "video/mp4",
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	return video, nil
+}
+
+func (t *twitterDownloaderRepository) extractVideoUrl(html string) string {
+	// Look for video URLs in various meta tags and script tags
+	patterns := []string{
+		`<meta property="og:video" content="([^"]+)"`,
+		`<meta property="og:video:url" content="([^"]+)"`,
+		`<meta name="twitter:player:stream" content="([^"]+)"`,
+		`"video_url":"([^"]+)"`,
+		`"playback_url":"([^"]+)"`,
+	}
+
+	for _, pattern := range patterns {
+		re := regexp.MustCompile(pattern)
+		matches := re.FindStringSubmatch(html)
+		if len(matches) > 1 {
+			return matches[1]
+		}
+	}
+
+	return ""
+}
+
+func (t *twitterDownloaderRepository) extractTweetText(html string) string {
+	// Extract tweet text from meta tags
+	patterns := []string{
+		`<meta property="og:description" content="([^"]+)"`,
+		`<meta name="twitter:description" content="([^"]+)"`,
+		`<meta name="description" content="([^"]+)"`,
+	}
+
+	for _, pattern := range patterns {
+		re := regexp.MustCompile(pattern)
+		matches := re.FindStringSubmatch(html)
+		if len(matches) > 1 {
+			return matches[1]
+		}
+	}
+
+	return ""
+}
+
+func (t *twitterDownloaderRepository) extractThumbnail(html string) string {
+	// Extract thumbnail from meta tags
+	patterns := []string{
+		`<meta property="og:image" content="([^"]+)"`,
+		`<meta name="twitter:image" content="([^"]+)"`,
+		`"poster":"([^"]+)"`,
+	}
+
+	for _, pattern := range patterns {
+		re := regexp.MustCompile(pattern)
+		matches := re.FindStringSubmatch(html)
+		if len(matches) > 1 {
+			return matches[1]
+		}
+	}
+
+	return ""
 }
