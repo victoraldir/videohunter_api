@@ -33,7 +33,7 @@ func TestVideoDownloaderUseCase_Execute_Integration(t *testing.T) {
 		dynamodDBClientMock.EXPECT().PutItem(gomock.Any()).Return(nil, nil).AnyTimes()
 
 		// Arrange
-		videoUrl := "https://x.com/enfuisback/status/1882542726845223422?s=46"
+		videoUrl := "https://x.com/analise2025/status/1953923802703737304"
 
 		videoRepository := dynamodb.NewDynamodbVideoRepository(dynamodDBClientMock, "video")
 		settingsRepository := dynamodb.NewDynamoSettingsRepository(dynamodDBClientMock, "settings")
