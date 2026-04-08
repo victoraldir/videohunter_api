@@ -21,17 +21,22 @@ func NewDownloaderHlsRepository() *downloaderHlsRepository {
 
 func (r *downloaderHlsRepository) DownloadHls(url string) (videoDownload *domain.Video, err error) {
 
+	// Twitter CDN requires a proper User-Agent header
+	userAgent := "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+	headers := fmt.Sprintf("User-Agent: %s\r\nAccept: */*", userAgent)
+
 	// Probe if url https://v.redd.it/b4cikpfnw80d1/HLSPlaylist.m3u8 is reachable
 	// Command: ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 {url}
 	log.Println("Probing video from: ", url)
-	command := exec.Command("ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "default=noprint_wrappers=1:nokey=1", url)
+	command := exec.Command("ffprobe", "-v", "error", "-headers", headers, "-show_entries", "format=duration", "-of", "default=noprint_wrappers=1:nokey=1", url)
 	command.Stderr = os.Stderr
 	command.Stdout = os.Stdout
 
 	// Execute the command
 	err = command.Run()
 	if err != nil {
-		return nil, err
+		log.Printf("ffprobe error: %v", err)
+		// Continue anyway - ffprobe might fail but ffmpeg might work
 	}
 
 	// Use ffmpeg to download the video
@@ -41,7 +46,7 @@ func (r *downloaderHlsRepository) DownloadHls(url string) (videoDownload *domain
 
 	log.Println("Downloading video from: ", url)
 	log.Println("Saving video to: ", videoPath)
-	command = exec.Command("ffmpeg", "-http_persistent", "0", "-i", url, "-c", "copy", "-bsf:a", "aac_adtstoasc", videoPath)
+	command = exec.Command("ffmpeg", "-headers", headers, "-i", url, "-c", "copy", "-bsf:a", "aac_adtstoasc", videoPath)
 
 	var outb, errb bytes.Buffer
 

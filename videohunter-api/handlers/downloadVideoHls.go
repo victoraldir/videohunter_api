@@ -3,6 +3,7 @@ package handlers
 import (
 	"io"
 	"log"
+	"net/url"
 	"os"
 	"strings"
 
@@ -29,7 +30,13 @@ func (h *DownloadVideoHlsHandler) Handle(request *events.LambdaFunctionURLReques
 	log.Println("Request download: ", request)
 
 	// Get video from query parameters
-	url := request.QueryStringParameters["url"]
+	encodedUrl := request.QueryStringParameters["url"]
+	decodedUrl, err := url.QueryUnescape(encodedUrl)
+	if err != nil {
+		log.Println("Error decoding URL: ", err)
+		decodedUrl = encodedUrl
+	}
+	log.Println("Decoded URL: ", decodedUrl)
 
 	// log.Println("Body: ", body)
 	// unscapeBody := strings.Replace(body, "\\\"", "\"", -1)
@@ -37,7 +44,7 @@ func (h *DownloadVideoHlsHandler) Handle(request *events.LambdaFunctionURLReques
 
 	downloadRequest := &DownalodRequest{}
 	// err := json.Unmarshal([]byte(unscapeBody), downloadRequest)
-	downloadRequest.Url = url
+	downloadRequest.Url = decodedUrl
 	// if err != nil {
 	// 	log.Println("Error unmarshalling request: ", err)
 	// 	return &events.LambdaFunctionURLStreamingResponse{
@@ -58,9 +65,9 @@ func (h *DownloadVideoHlsHandler) Handle(request *events.LambdaFunctionURLReques
 	// 	}, nil
 	// }
 
-	log.Println("Downloading video from: ", downloadRequest.Url)
+	log.Println("Downloading video from: ", decodedUrl)
 
-	videoResponse, err := h.DownloadVideoHlsUseCase.Execute(downloadRequest.Url)
+	videoResponse, err := h.DownloadVideoHlsUseCase.Execute(decodedUrl)
 
 	if err != nil {
 		log.Println("Error downloading video: ", err)
