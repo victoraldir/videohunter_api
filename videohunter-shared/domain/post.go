@@ -13,12 +13,13 @@ type Posts struct {
 }
 
 type Post struct {
-	Uri    string `json:"uri"`
-	Cid    string `json:"cid"`
-	Author Author `json:"author"`
-	Record Record `json:"record"`
-	Embed  Embed  `json:"embed"`
-	Url    *Url   // Enriched video
+	Uri       string `json:"uri"`
+	Cid       string `json:"cid"`
+	Author    Author `json:"author"`
+	Record    Record `json:"record"`
+	Embed     Embed  `json:"embed"`
+	IndexedAt string `json:"indexedAt"`
+	Url       *Url   // Enriched video
 }
 
 type PostReply struct {
