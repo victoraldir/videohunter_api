@@ -13,7 +13,7 @@ func main() {
 	bskyUserName := os.Getenv("BSKY_USERNAME")
 	bskyPassword := os.Getenv("BSKY_PASSWORD")
 
-	slog.Info("credentials", slog.Any("bskyUserName", bskyUserName), slog.Any("bskyPassword", bskyPassword))
+	slog.Info("bsky credentials loaded", slog.Any("bskyUserName", bskyUserName), slog.Any("passwordSet", bskyPassword != ""))
 
 	handler := application.NewFetchPostHandler()
 

@@ -56,6 +56,11 @@ func (b *bskyService) SearchPostsByMention(mention, since, until string) ([]shar
 	// curl --location 'https://public.api.bsky.app/xrpc/app.bsky.feed.searchPosts?q=%22%40myvideohunter.com%22' --header 'Authorization: Bearer token'
 	slog.Debug("Searching posts by mention: %s", slog.String("mention", mention))
 
+	if b.session == nil || b.session.AccessJwt == "" {
+		slog.Debug("Session is not set or access token is empty")
+		return nil, fmt.Errorf("session is not set or access token is empty")
+	}
+
 	req := http.Request{
 		URL: &url.URL{
 			Scheme: scheme,
@@ -369,7 +374,7 @@ func (b *bskyService) RefreshSession(session *shared_domain.Session) (*shared_do
 	// Unmarshal response
 	newSession := shared_domain.Session{}
 
-	json.NewDecoder(resp.Body).Decode(&session)
+	json.NewDecoder(resp.Body).Decode(&newSession)
 
 	defer resp.Body.Close()
 
