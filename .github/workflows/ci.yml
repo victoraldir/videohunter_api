@@ -30,12 +30,14 @@ jobs:
         if: matrix.go == '1.23'
         run: make lint
 
-      # - name: Run tests app directory
-      #   run: make test
+      - name: Run tests
+        if: matrix.go == '1.23'
+        run: make test-modules
 
       - name: Upload coverage reports to Codecov
         uses: codecov/codecov-action@v3
         if: matrix.go == '1.23'
+        continue-on-error: true
         with:
           files: ./coverage.txt
         env:

@@ -34,15 +34,34 @@ build-sam: build build/layer/bin/ffmpeg
 test:
 	@cd ${APP_FOLDER} && go test -tags=unit -race -coverprofile=../coverage.txt -covermode=atomic -timeout 5s ./...
 
-# Tests every module that does not require live external services.
+# Tests every module that does not require live external services. Coverage from
+# each package is merged into ../coverage.txt, which the CI uploads to Codecov.
 test-modules:
+	@rm -f coverage.txt
 	@status=0; \
 	for dir in ${UNIT_TEST_MODULES}; do \
 		echo "Testing $$dir..."; \
-		(cd $$dir && go test -race -timeout 120s ./...) || status=1; \
+		(cd $$dir && go test -race -timeout 120s -coverprofile=../module-coverage.txt -covermode=atomic ./...) || status=1; \
+		if [ -f module-coverage.txt ]; then \
+			if [ -f coverage.txt ]; then \
+				tail -n +2 module-coverage.txt >> coverage.txt; \
+			else \
+				cat module-coverage.txt > coverage.txt; \
+			fi; \
+			rm -f module-coverage.txt; \
+		fi; \
 	done; \
 	echo "Testing videohunter-shared (unit packages)..."; \
-	(cd videohunter-shared && go test -race -timeout 120s $$(go list ./... | grep -v -e '/services/bsky' -e '/services/reddit' -e '/services/videohunterapi')) || status=1; \
+	SHARED_PKGS=$$(cd videohunter-shared && go list ./... | grep -v -e '/services/bsky' -e '/services/reddit' -e '/services/videohunterapi'); \
+	(cd videohunter-shared && go test -race -timeout 120s -coverprofile=../module-coverage.txt -covermode=atomic $$SHARED_PKGS) || status=1; \
+	if [ -f module-coverage.txt ]; then \
+		if [ -f coverage.txt ]; then \
+			tail -n +2 module-coverage.txt >> coverage.txt; \
+		else \
+			cat module-coverage.txt > coverage.txt; \
+		fi; \
+		rm -f module-coverage.txt; \
+	fi; \
 	exit $$status
 
 test-twitter:
