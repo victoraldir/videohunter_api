@@ -16,9 +16,16 @@ type HttpClient interface {
 	Do(req *http.Request) (*http.Response, error)
 }
 
+// VideoHunterApi creates Video Hunter download URLs from a source video URL.
+type VideoHunterApi interface {
+	DownloadVideo(videoUrl string) (domain.VideoUrl, error)
+}
+
 type videoHunterApi struct {
 	client HttpClient
 }
+
+var _ VideoHunterApi = (*videoHunterApi)(nil)
 
 func NewVideoHunterApi(client HttpClient) *videoHunterApi {
 	return &videoHunterApi{
@@ -53,7 +60,7 @@ func (v *videoHunterApi) DownloadVideo(videoUrl string) (domain.VideoUrl, error)
 
 	// Unmarshal response
 	videoUrlResponse := domain.VideoUrl{}
-	err = json.NewDecoder(resp.Body).Decode(&videoUrl)
+	err = json.NewDecoder(resp.Body).Decode(&videoUrlResponse)
 	if err != nil {
 		slog.Debug("Error decoding video url from videohunter", slog.Any("error", err))
 		return domain.VideoUrl{}, err

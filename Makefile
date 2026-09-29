@@ -3,6 +3,9 @@ REGION := us-east-1
 APP_FOLDER := videohunter-api
 APP_LOCAL_NETWORK := myvideohunter-api
 FUNCTIONS := create-url get-url download-video-hls mix-audio-video create-url-batch
+MODULE_DIRS := videohunter-api videohunter-bsky videohunter-shared videohunter-telegram videohunter-twitter
+# Modules whose test suites do not need live external services.
+UNIT_TEST_MODULES := videohunter-bsky videohunter-telegram videohunter-twitter
 # Get token from env variable
 PARAMETERS_OVERRIDE := LogLevel=INFO
 
@@ -24,12 +27,32 @@ build-%:
 build-sam: build build/layer/bin/ffmpeg
 	@sam build
 
+.PHONY: test test-modules test-twitter tidy
+
+# Tests the API module (produces coverage.txt consumed by Codecov). Note: this
+# module contains pre-existing network integration tests that need live access.
 test:
 	@cd ${APP_FOLDER} && go test -tags=unit -race -coverprofile=../coverage.txt -covermode=atomic -timeout 5s ./...
 
-.PHONY: tidy
+# Tests every module that does not require live external services.
+test-modules:
+	@status=0; \
+	for dir in ${UNIT_TEST_MODULES}; do \
+		echo "Testing $$dir..."; \
+		(cd $$dir && go test -race -timeout 120s ./...) || status=1; \
+	done; \
+	echo "Testing videohunter-shared (unit packages)..."; \
+	(cd videohunter-shared && go test -race -timeout 120s $$(go list ./... | grep -v -e '/services/bsky' -e '/services/reddit' -e '/services/videohunterapi')) || status=1; \
+	exit $$status
+
+test-twitter:
+	@cd videohunter-twitter && go test -race -timeout 120s ./...
+
+# Only the twitter module can be tidied in isolation: the other workspace modules
+# import github.com/victoraldir/myvideohuntershared, which is not published and is
+# resolved through go.work (a local replace directive makes this module standalone).
 tidy:
-	@$(foreach dir,$(MODULE_DIRS),(cd $(dir) && go mod tidy) &&) true
+	@cd videohunter-twitter && go mod tidy
 
 clean:
 	@rm -f $(foreach function,${FUNCTIONS}, ${APP_FOLDER}/functions/${function}/bootstrap)
@@ -88,9 +111,9 @@ lint: $(STATICCHECK)
 	@echo "Checking formatting..."
 	@gofmt -d -s $(GO_FILES) 2>&1 | tee lint.log
 	@echo "Checking vet..."
-	@$(foreach dir,$(APP_FOLDER),(cd $(dir) && go vet ./... 2>&1) &&) true | tee -a lint.log
+	@$(foreach dir,$(MODULE_DIRS),(cd $(dir) && go vet ./... 2>&1) &&) true | tee -a lint.log
 	@echo "Checking staticcheck..."
-	@$(foreach dir,$(APP_FOLDER),(cd $(dir) && $(STATICCHECK) ./... 2>&1) &&) true | tee -a lint.log
+	@$(foreach dir,$(MODULE_DIRS),(cd $(dir) && $(STATICCHECK) ./... 2>&1) &&) true | tee -a lint.log
 	@echo "Checking for unresolved FIXMEs..."
 	@git grep -i fixme | grep -v -e Makefile | tee -a lint.log
 	@[ ! -s lint.log ]
