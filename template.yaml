@@ -25,6 +25,10 @@ Globals:
         DONWLOAD_HLS_URL: "https://downloadhlsurlgoeshere.com"
         BSKY_USERNAME: '{{resolve:ssm:/videohunter/bsky/username:1}}'
         BSKY_PASSWORD: '{{resolve:ssm:/videohunter/bsky/password:2}}' # It sucks, but it still doesn't support ssm-secure ref apparently. Check later
+        GETXAPI_KEY: '{{resolve:ssm:/videohunter/getxapi/key:1}}'
+        TWITTER_BOT_USERNAMES: 'BaixadorDeVideo,descargarvid'
+        TWITTER_BOT_AUTH_TOKEN_BAIXADORDEVIDEO: '{{resolve:ssm:/videohunter/twitter/baixadordevideo/auth_token:1}}'
+        TWITTER_BOT_AUTH_TOKEN_DESCARGARVID: '{{resolve:ssm:/videohunter/twitter/descargarvid/auth_token:1}}'
     Tracing: Active
   Api:
     TracingEnabled: true
@@ -358,6 +362,26 @@ Resources:
             Schedule: 'cron(* * * * ? *)' # Every minute
             Name: 'DailyTrigger'
             Description: 'Trigger the bot every minute'
+
+  ScheduledTwitterBotFunction:
+    Type: 'AWS::Serverless::Function'
+    Metadata:
+      BuildMethod: go1.x
+    Properties:
+      Handler: main
+      CodeUri: videohunter-twitter
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref SettingsTable
+      MemorySize: 128
+      Timeout: 300
+      Events:
+        ScheduledEvent:
+          Type: 'Schedule'
+          Properties:
+            Schedule: 'cron(0/10 * * * ? *)' # Every 10 minutes
+            Name: 'TwitterBotTrigger'
+            Description: 'Fetch mentions and reply to them every 10 minutes'
 
   ApplicationResourceGroup:
     Type: AWS::ResourceGroups::Group

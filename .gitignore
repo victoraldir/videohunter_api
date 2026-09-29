@@ -1,6 +1,8 @@
 .aws-sam
 .vscode
 bootstrap
+myvideohuntertelegram
+myvideohuntertwitter
 env-vars.json
 bin
 .DS_Store

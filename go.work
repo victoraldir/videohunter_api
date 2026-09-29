@@ -5,4 +5,5 @@ use (
 	./videohunter-bsky
 	./videohunter-shared
 	./videohunter-telegram
+	./videohunter-twitter
 )
