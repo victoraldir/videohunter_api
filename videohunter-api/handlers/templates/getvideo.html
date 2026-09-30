@@ -1,9 +1,13 @@
-<html>
+<!DOCTYPE html>
+<html lang="en">
 
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Video Hunter - Video downloader</title>
+    <title>{{ .Video.PageTitle }}</title>
+    <meta name="description" content="{{ .Video.PageDescription }}">
+    <meta name="robots" content="max-image-preview:large, max-snippet:-1">
+    <link rel="canonical" href="{{ .Video.CanonicalURL }}">
     <link rel="apple-touch-icon" sizes="57x57" href="https://www.myvideohunter.com/static/apple-icon-57x57.png">
     <link rel="apple-touch-icon" sizes="60x60" href="https://www.myvideohunter.com/static/apple-icon-60x60.png">
     <link rel="apple-touch-icon" sizes="72x72" href="https://www.myvideohunter.com/static/apple-icon-72x72.png">
@@ -18,20 +22,19 @@
     <link rel="icon" type="image/png" sizes="96x96" href="https://www.myvideohunter.com/static/favicon-96x96.png">
     <link rel="icon" type="image/png" sizes="16x16" href="https://www.myvideohunter.com/static/favicon-16x16.png">
     <link rel="manifest" href="https://www.myvideohunter.com/static/manifest.json">
-    <meta name="description" content="Download videos from Twitter by mentioning @BaixadorDeVideo. You can also use our app Video Hunter to download videos">
-    <meta property="og:title" content="Video Download" />
-    <meta property="og:url" content="https://www.myvideohunter.com/{{ .Video.Id }}" />
-    <meta property="og:description" content="{{ .Video.Text}}" />
+    <meta property="og:title" content="{{ .Video.PageTitle }}" />
+    <meta property="og:url" content="{{ .Video.CanonicalURL }}" />
+    <meta property="og:description" content="{{ .Video.PageDescription }}" />
     <meta property="og:image" content="{{ .Video.ThumbnailUrl }}" />
-    <meta property="og:image:alt" content="{{ .Video.Text}}" />
+    <meta property="og:image:alt" content="{{ .Video.Text }}" />
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content="Video Hunter" />
-    <meta property="twitter:card" content="summary_large_image" />
-    <meta property="twitter:url" content="https://www.myvideohunter.com/{{ .Video.Id }}" />
-    <meta property="twitter:title" content="Video Download" />
-    <meta property="twitter:description" content="{{ .Video.Text}}" />
-    <meta property="twitter:image" content="{{ .Video.ThumbnailUrl }}" />
-    <meta property="twitter:image:alt" content="{{ .Video.Text}}" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:url" content="{{ .Video.CanonicalURL }}" />
+    <meta name="twitter:title" content="{{ .Video.PageTitle }}" />
+    <meta name="twitter:description" content="{{ .Video.PageDescription }}" />
+    <meta name="twitter:image" content="{{ .Video.ThumbnailUrl }}" />
+    <meta name="twitter:image:alt" content="{{ .Video.Text }}" />
 
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.1/dist/css/bootstrap.min.css" rel="stylesheet">
     <style>
@@ -47,6 +50,7 @@
             background-color: rgba(0, 0, 0, 0.5);
             z-index: 1050;
         }
+
         .loading-spinner .spinner-border {
             width: 3rem;
             height: 3rem;
@@ -70,14 +74,14 @@
             // Twitter's video CDN blocks direct browser requests
             // Keep query params (like ?tag=21) as they're needed for the video
             const downloadUrl = '/prod/download?url=' + encodeURIComponent(videoUrl);
-            
+
             // Create a link element to trigger the download
             let a = document.createElement('a');
             a.style.display = 'none';
             document.body.appendChild(a);
-            
+
             oReq.responseType = 'blob';
-            oReq.onload = function(e) {
+            oReq.onload = function (e) {
                 if (this.status === 200) {
                     var blob = e.currentTarget.response;
                     let currentDate = new Date();
@@ -89,7 +93,7 @@
                 }
                 hideLoadingSpinner();
             };
-            oReq.onerror = function() {
+            oReq.onerror = function () {
                 hideLoadingSpinner();
                 alert('Download failed. Please try again.');
             };
@@ -105,12 +109,13 @@
         window.dataLayer = window.dataLayer || [];
         function gtag() { dataLayer.push(arguments); }
         gtag('js', new Date());
-
         gtag('config', 'G-MBT9KLR914');
-        gtag('config', 'G-MBT9KLR914', { 'send_page_view': false });
     </script>
-    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-6526073251385305"
+    <script type="application/ld+json">{{ .JsonLD }}</script>
+    {{ if .AdsenseClient }}
+    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client={{ .AdsenseClient }}"
         crossorigin="anonymous"></script>
+    {{ end }}
 </head>
 
 <body>
@@ -138,19 +143,31 @@
         </div>
     </nav>
 
-    <div class="container-fluid p-4 bg-secondary text-black text-center">
+    <header class="container-fluid p-4 bg-secondary text-black text-center">
+        <h1 class="h3 mb-1">Download {{ .Video.Platform }} video</h1>
+        <p class="mb-0">Save this video in HD. Free, no signup, no watermark.</p>
+    </header>
+
+    {{ template "adunit" .AdTop }}
+
+    <div class="container-fluid pb-4 text-center">
         <div class="col d-flex justify-content-center">
             <div class="card p-0 col-sm-7 border-0 rounded-1 shadow mx-auto mb-3">
-                <img src="{{ .Video.ThumbnailUrl }}" class="card-img-top" style="max-height:250px; max-width: fit-content; align-self: center; margin-top: 10px;"/>
+                <img src="{{ .Video.ThumbnailUrl }}" class="card-img-top"
+                    style="max-height:250px; max-width: fit-content; align-self: center; margin-top: 10px;"
+                    alt="{{ .Video.Text }}" />
                 <input type="hidden" id="IsTwitter" value="{{ .Video.IsTwitter }}">
                 <div class="card-body">
-                    <a href="{{ .Video.OriginalVideoUrl }}" class="card-title" target="_blank">Original URL</a>
+                    <a href="{{ .Video.OriginalVideoUrl }}" class="card-title" target="_blank"
+                        rel="noopener">Original URL</a>
                     <p class="card-text">{{ .Video.Text }}</p>
-                    <p class="card-text"><small class="text-muted">Last updated 3 mins ago</small></p>
                     <section>
                         <div class="d-grid gap-2 col-6 mx-auto">
                             {{ range $key, $value := .Video.Variants }}
-                            <a onclick="downloadVideo('{{ $value.URL }}')" class="btn btn-primary" type="button">Download: {{ $value.GetVidResFromUrl }}</a>
+                            {{ if ne $value.GetVidResFromUrl ".m3u8" }}
+                            <a onclick="downloadVideo('{{ $value.URL }}')" class="btn btn-primary"
+                                type="button">Download: {{ $value.GetVidResFromUrl }}</a>
+                            {{ end }}
                             {{ end }}
                         </div>
                     </section>
@@ -159,12 +176,35 @@
         </div>
     </div>
 
+    {{ template "adunit" .AdBottom }}
+
+    <section class="container py-4">
+        <h2 class="h5">How to download this video</h2>
+        <ol>
+            <li>Click the download button for the quality you want.</li>
+            <li>The video is saved to your device's default download folder.</li>
+            <li>If the video opens in a player instead of saving, tap and hold (mobile) or right-click (desktop) and
+                choose "Save link as".</li>
+        </ol>
+        <p>Video Hunter is a free online video downloader for X (Twitter), Reddit and Bluesky. <a href="/">Paste a new
+                link</a> to save another video, or check the <a href="/faq.html">FAQ</a> if a download does not
+            work.</p>
+    </section>
+
     <!-- Loading Spinner -->
     <div id="loadingSpinner" class="loading-spinner">
         <div class="spinner-border text-light" role="status">
             <span class="visually-hidden">Loading...</span>
         </div>
     </div>
+
+    <footer class="text-center py-4 bg-dark text-white">
+        <div class="container">
+            <p class="mb-0">&copy; Video Hunter. All rights reserved.</p>
+            <p class="mb-0"><a href="/policy.html" class="text-white-50">Privacy Policy</a> | <a href="/faq.html"
+                    class="text-white-50">FAQ</a></p>
+        </div>
+    </footer>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.1/dist/js/bootstrap.bundle.min.js"></script>
 </body>

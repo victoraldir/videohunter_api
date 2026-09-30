@@ -1,0 +1,9 @@
+{{ define "adunit" }}
+{{ if .Slot }}
+<div class="container my-4 text-center">
+    <ins class="adsbygoogle" style="display:block" data-ad-client="{{ .Client }}" data-ad-slot="{{ .Slot }}"
+        data-ad-format="auto" data-full-width-responsive="true"></ins>
+    <script>(adsbygoogle = window.adsbygoogle || []).push({});</script>
+</div>
+{{ end }}
+{{ end }}
