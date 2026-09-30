@@ -404,6 +404,49 @@ Resources:
               Bool:
                 aws:SecureTransport: false
 
+  # Role assumed by GitHub Actions (OIDC, no long-lived keys) in the website
+  # repo to publish dist/ to the bucket and invalidate the CDN.
+  WebsiteDeployRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub ${AWS::StackName}-website-deploy
+      Description: Assumed by GitHub Actions in victoraldir/video_hunter_website to deploy the static site
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Federated: !Sub arn:aws:iam::${AWS::AccountId}:oidc-provider/token.actions.githubusercontent.com
+            Action: sts:AssumeRoleWithWebIdentity
+            Condition:
+              StringEquals:
+                token.actions.githubusercontent.com:aud: sts.amazonaws.com
+              StringLike:
+                token.actions.githubusercontent.com:sub: repo:victoraldir/video_hunter_website:ref:refs/heads/main
+      Policies:
+        - PolicyName: website-deploy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Sid: ListBucket
+                Effect: Allow
+                Action:
+                  - s3:ListBucket
+                Resource: !GetAtt WebsiteBucket.Arn
+              - Sid: WriteSiteObjects
+                Effect: Allow
+                Action:
+                  - s3:GetObject
+                  - s3:PutObject
+                  - s3:DeleteObject
+                Resource: !Sub ${WebsiteBucket.Arn}/*
+              - Sid: InvalidateCache
+                Effect: Allow
+                Action:
+                  - cloudfront:CreateInvalidation
+                  - cloudfront:GetInvalidation
+                Resource: !Sub arn:aws:cloudfront::${AWS::AccountId}:distribution/${CloudFrontDistribution}
+
   ScheduledBotFunction:
     Type: 'AWS::Serverless::Function'
     Metadata:
@@ -456,6 +499,12 @@ Resources:
       ResourceGroupName: !Ref ApplicationResourceGroup
       AutoConfigurationEnabled: 'true'
 Outputs:
+  WebsiteDeployRoleArn:
+    Description: IAM role ARN for the website GitHub Actions workflow (AWS_DEPLOY_ROLE_ARN)
+    Value: !GetAtt WebsiteDeployRole.Arn
+  CloudFrontDistributionId:
+    Description: CloudFront distribution ID for the website deploy invalidation (CLOUDFRONT_DISTRIBUTION_ID)
+    Value: !Ref CloudFrontDistribution
   VideoHunterAPI:
     Description: API Gateway endpoint URL for Prod stage for Create URL function.
     Value: !Sub https://${GatewayAPI}.execute-api.${AWS::Region}.amazonaws.com/${Environment}/url
