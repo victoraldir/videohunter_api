@@ -421,8 +421,13 @@ Resources:
             Condition:
               StringEquals:
                 token.actions.githubusercontent.com:aud: sts.amazonaws.com
+              # The deploy job targets the "production" GitHub environment, so
+              # the subject is environment based; the ref form is kept for runs
+              # that do not use the environment.
               StringLike:
-                token.actions.githubusercontent.com:sub: repo:victoraldir/video_hunter_website:ref:refs/heads/main
+                token.actions.githubusercontent.com:sub:
+                  - repo:victoraldir/video_hunter_website:environment:production
+                  - repo:victoraldir/video_hunter_website:ref:refs/heads/main
       Policies:
         - PolicyName: website-deploy
           PolicyDocument:
