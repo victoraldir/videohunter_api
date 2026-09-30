@@ -97,3 +97,24 @@ func TestGetVideoResponse_CanonicalURL(t *testing.T) {
 		"https://www.myvideohunter.com/prod/url/aHR0cHM6Ly90d2l0dGVyLmNvbS9lZXVnZWVfL3N0YXR1cy8yMTA1MDM4Njk1NTc3NjYxNzg1",
 		video.CanonicalURL())
 }
+
+func TestGetVideoResponse_PlatformPageURL(t *testing.T) {
+
+	tests := []struct {
+		name string
+		url  string
+		want string
+	}{
+		{"x.com", "https://x.com/eeugee_/status/1", "/x-video-downloader.html"},
+		{"reddit", "https://www.reddit.com/r/videos/comments/1abc/test/", "/reddit-video-downloader.html"},
+		{"bsky", "https://bsky.app/profile/bsky.app/post/3lxxo3i4qzs2c", "/bluesky-video-downloader.html"},
+		{"unknown", "https://example.com/video/1", "/"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			video := &GetVideoResponse{OriginalVideoUrl: tt.url}
+			assert.Equal(t, tt.want, video.PlatformPageURL())
+		})
+	}
+}

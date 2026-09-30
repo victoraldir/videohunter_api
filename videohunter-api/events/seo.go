@@ -69,6 +69,22 @@ func (v *GetVideoResponse) CanonicalURL() string {
 	return canonicalBaseURL + "/prod/url/" + v.Id
 }
 
+// PlatformPageURL returns the landing page for the platform the video comes
+// from, so video pages can link to it.
+func (v *GetVideoResponse) PlatformPageURL() string {
+
+	switch v.Platform() {
+	case "X (Twitter)":
+		return "/x-video-downloader.html"
+	case "Reddit":
+		return "/reddit-video-downloader.html"
+	case "Bluesky":
+		return "/bluesky-video-downloader.html"
+	}
+
+	return "/"
+}
+
 // HostFromURL returns the lowercased host of the given URL, or an empty
 // string when it cannot be determined.
 func hostFromURL(rawURL string) string {

@@ -78,6 +78,9 @@ func TestGetUrlHandle_Handle_RendersVideoPage(t *testing.T) {
 	// No ad units rendered while the AdSense slot IDs are not configured.
 	assert.NotContains(t, body, `<ins class="adsbygoogle"`)
 
+	// Internal link to the matching platform landing page.
+	assert.Contains(t, body, `href="/x-video-downloader.html"`)
+
 	// Caching headers.
 	assert.Equal(t, "public, max-age=3600, s-maxage=3600", response.Headers["Cache-Control"])
 	assert.Equal(t, "text/html; charset=utf-8", response.Headers["Content-Type"])
