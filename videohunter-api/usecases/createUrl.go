@@ -45,6 +45,8 @@ func (v *videoDownloaderUseCase) Execute(url string) (*events.CreateVideoRespons
 
 	if utils.IsTwitterUrl(url) {
 		url = utils.NormalizeVideoUrl(url)
+	} else if utils.IsRedditUrl(url) {
+		url = utils.NormalizeRedditUrl(url)
 	}
 
 	videoId := utils.GenerateShortID(url)
