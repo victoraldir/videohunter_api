@@ -81,6 +81,11 @@ func TestGetUrlHandle_Handle_RendersVideoPage(t *testing.T) {
 	// Internal link to the matching platform landing page.
 	assert.Contains(t, body, `href="/x-video-downloader.html"`)
 
+	// The nav matches the site's, so the video pages are not a dead end.
+	assert.Contains(t, body, `href="/reddit-video-downloader.html"`)
+	assert.Contains(t, body, `href="/bluesky-video-downloader.html"`)
+	assert.Contains(t, body, `href="/telegram-bot.html"`)
+
 	// Caching headers.
 	assert.Equal(t, "public, max-age=3600, s-maxage=3600", response.Headers["Cache-Control"])
 	assert.Equal(t, "text/html; charset=utf-8", response.Headers["Content-Type"])

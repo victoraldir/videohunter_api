@@ -52,7 +52,7 @@ test-modules:
 		fi; \
 	done; \
 	echo "Testing videohunter-shared (unit packages)..."; \
-	SHARED_PKGS=$$(cd videohunter-shared && go list ./... | grep -v -e '/services/bsky' -e '/services/reddit' -e '/services/videohunterapi'); \
+	SHARED_PKGS=$$(cd videohunter-shared && go list ./... | grep -v -e '/services/bsky' -e '/services/videohunterapi'); \
 	(cd videohunter-shared && go test -race -timeout 120s -coverprofile=../module-coverage.txt -covermode=atomic $$SHARED_PKGS) || status=1; \
 	if [ -f module-coverage.txt ]; then \
 		if [ -f coverage.txt ]; then \

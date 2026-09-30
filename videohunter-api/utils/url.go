@@ -11,31 +11,45 @@ const (
 	urlVideoSeparator = "/"
 )
 
+// redditHosts are the hosts accepted for Reddit post URLs. Reddit serves the
+// same post from all of them and its JSON endpoint works on each, but the
+// website's own copy and the share sheet both produce reddit.com and
+// old.reddit.com links, so all of them have to be accepted.
+var redditHosts = map[string]bool{
+	"reddit.com":     true,
+	"www.reddit.com": true,
+	"old.reddit.com": true,
+	"new.reddit.com": true,
+}
+
 func IsRedditUrl(redditUrl string) bool {
 
 	if redditUrl == "" {
 		return false
 	}
 
-	url, err := url.Parse(redditUrl)
+	parsed, err := url.Parse(redditUrl)
 
 	if err != nil {
 		return false
 	}
 
-	if url.Host != "www.reddit.com" {
+	if parsed.Scheme != "https" {
 		return false
 	}
 
-	if url.Scheme != "https" {
+	if !redditHosts[strings.ToLower(parsed.Host)] {
 		return false
 	}
 
-	if url.Path == "" {
+	if parsed.Path == "" {
 		return false
 	}
 
-	return true
+	// Only post URLs are supported: either a canonical /comments/ permalink or
+	// a /s/ share link. Anything else has no JSON endpoint to read and used to
+	// panic further down the pipeline.
+	return strings.Contains(parsed.Path, "/comments/") || strings.Contains(parsed.Path, "/s/")
 }
 
 func IsBskyUrl(bskyUrl string) bool {
@@ -176,6 +190,26 @@ func NormalizeVideoUrl(videoUrl string) string {
 	url.RawQuery = ""
 
 	return url.String()
+}
+
+// redditCanonicalHost is the host Reddit itself uses for permalinks.
+const redditCanonicalHost = "www.reddit.com"
+
+// NormalizeRedditUrl rewrites a Reddit post URL to its canonical host and drops
+// tracking parameters, so that the same post pasted as reddit.com,
+// old.reddit.com or www.reddit.com resolves to a single video id instead of
+// three near-duplicate pages.
+func NormalizeRedditUrl(redditUrl string) string {
+
+	parsed, err := url.Parse(redditUrl)
+	if err != nil {
+		return redditUrl
+	}
+
+	parsed.Host = redditCanonicalHost
+	parsed.RawQuery = ""
+
+	return parsed.String()
 }
 
 func UrlToUriAt(url string) string {

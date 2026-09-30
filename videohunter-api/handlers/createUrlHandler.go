@@ -2,7 +2,9 @@ package handlers
 
 import (
 	"encoding/json"
+	"errors"
 	"log"
+	"net/http"
 	"strings"
 
 	events_aws "github.com/aws/aws-lambda-go/events"
@@ -39,10 +41,7 @@ func (h *CreateUrlHandler) Handle(request events_aws.APIGatewayProxyRequest) (ev
 
 	if err != nil {
 		slog.Error("Error unmarshalling request: ", err)
-		return events_aws.APIGatewayProxyResponse{
-			Body:       "Invalid Request",
-			StatusCode: 400,
-		}, nil
+		return jsonResponse(http.StatusBadRequest, "Invalid request."), nil
 	}
 
 	// Trim video_url
@@ -54,50 +53,74 @@ func (h *CreateUrlHandler) Handle(request events_aws.APIGatewayProxyRequest) (ev
 		!utils.IsRedditUrl(videoRequest.VideoUrl) &&
 		!utils.IsBskyUrl(videoRequest.VideoUrl) {
 		slog.Error("Invalid video_url: ", videoRequest.VideoUrl)
-		return events_aws.APIGatewayProxyResponse{
-			Body:       "Invalid video_url",
-			StatusCode: 400,
-		}, nil
+		return jsonResponse(http.StatusBadRequest,
+			"That link is not supported. Paste a link to a post from X (Twitter), Reddit or Bluesky."), nil
 	}
 
 	videoResponse, err := h.VideoDownloaderUseCase.Execute(videoRequest.VideoUrl)
 
 	if err != nil {
-
-		if _, ok := err.(*reddit.InvalidPostError); ok {
-			slog.Error("Error downloading video: ", err)
-			return events_aws.APIGatewayProxyResponse{
-				Body:       "Invalid video_url",
-				StatusCode: 400,
-			}, nil
-		}
-
-		slog.Error("Error downloading video: ", err)
-		return events_aws.APIGatewayProxyResponse{
-			Body:       "Error downloading video",
-			StatusCode: 500,
-		}, nil
+		return h.errorResponse(err), nil
 	}
 
 	videoResponseJson, err := json.Marshal(videoResponse)
 
 	if err != nil {
-		slog.Error("Error marshalling response: ", err)
+		slog.Error("Error marshalling response", "error", err)
+		return jsonResponse(http.StatusInternalServerError, "Something went wrong. Please try again."), nil
+	}
+
+	return jsonResponseWithBody(http.StatusOK, string(videoResponseJson)), nil
+}
+
+// errorResponse maps a download failure to an HTTP response.
+//
+// The distinction matters to the user: a link that cannot work (deleted post,
+// post without a video) is not the same thing as a platform that is down or
+// rate limiting us, and only the first one is worth fixing by pasting
+// something else. Bodies are JSON with a "message" field, which the website
+// already shows verbatim.
+func (h *CreateUrlHandler) errorResponse(err error) events_aws.APIGatewayProxyResponse {
+
+	var invalidPost *reddit.InvalidPostError
+	if errors.As(err, &invalidPost) {
+		slog.Info("Post has no downloadable video", "status", invalidPost.StatusCode, "error", invalidPost.Err)
+		return jsonResponse(http.StatusNotFound,
+			"That post has no downloadable video. It may have been deleted, or it may not be a video.")
+	}
+
+	var upstream *reddit.UpstreamError
+	if errors.As(err, &upstream) {
+		slog.Error("Upstream platform unavailable", "status", upstream.StatusCode, "error", upstream.Err)
+		return jsonResponse(http.StatusBadGateway,
+			"The platform is not responding right now. Please try again in a moment.")
+	}
+
+	slog.Error("Error downloading video", "error", err)
+	return jsonResponse(http.StatusInternalServerError,
+		"Something went wrong while fetching the video. Please try again.")
+}
+
+func jsonResponse(statusCode int, message string) events_aws.APIGatewayProxyResponse {
+	body, err := json.Marshal(map[string]string{"message": message})
+	if err != nil {
+		slog.Error("Error marshalling error response", "error", err)
 		return events_aws.APIGatewayProxyResponse{
-			Body:       "Error marshalling response",
-			StatusCode: 500,
-		}, nil
+			StatusCode: http.StatusInternalServerError,
+			Body:       `{"message":"Something went wrong. Please try again."}`,
+		}
 	}
 
-	// Set CORS headers for the preflight request
-	headers := map[string]string{
-		"Content-Type":                "application/json",
-		"Access-Control-Allow-Origin": "*",
-	}
+	return jsonResponseWithBody(statusCode, string(body))
+}
 
+func jsonResponseWithBody(statusCode int, body string) events_aws.APIGatewayProxyResponse {
 	return events_aws.APIGatewayProxyResponse{
-		Body:       string(videoResponseJson),
-		StatusCode: 200,
-		Headers:    headers,
-	}, nil
+		StatusCode: statusCode,
+		Body:       body,
+		Headers: map[string]string{
+			"Content-Type":                "application/json",
+			"Access-Control-Allow-Origin": "*",
+		},
+	}
 }
