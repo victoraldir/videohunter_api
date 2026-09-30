@@ -7,7 +7,10 @@ version = 0.1
 stack_name = "videohunter-api"
 
 [default.build.parameters]
-cached = true
+# Do not cache: the Lambda HTML templates are embedded into the Go binary, and
+# the build cache does not notice when only those files change, which silently
+# ships the previous pages.
+cached = false
 parallel = true
 
 [default.validate.parameters]
