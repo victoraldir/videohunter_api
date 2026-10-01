@@ -9,6 +9,18 @@ on:
     #   - Makefile
     branches: [ main ]
 
+# Two pushes to main in quick succession would otherwise start two deployments at
+# once. CloudFormation accepts only one operation per stack, so the second deploy
+# fails with UPDATE_IN_PROGRESS and the run goes red for no real reason. Queueing
+# serialises them.
+#
+# cancel-in-progress stays false deliberately: this job drives a CloudFormation
+# update, and cancelling the run does not cancel that update. Letting a deploy
+# finish and the next one wait behind it is the safer order.
+concurrency:
+  group: cd
+  cancel-in-progress: false
+
 jobs:
   tests:
     runs-on: ubuntu-latest
