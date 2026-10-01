@@ -1,5 +1,16 @@
 package domain
 
+// Profile is the public identity of an account: only a nickname, generated
+// when the account is first seen and changeable at any time.
+//
+// It is stored separately from the account itself so that what a room shows
+// can change without touching Cognito, and so that nothing derived from the
+// email address is ever published.
+type Profile struct {
+	Nickname  string `json:"nickname"`
+	CreatedAt string `json:"created_at"`
+}
+
 // Folder groups the videos a signed in user has saved. A library is stored as
 // one row per folder plus one row per saved video, all under the same user id,
 // so listing it is a single query.

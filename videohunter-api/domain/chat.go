@@ -15,8 +15,17 @@ type ChatMessage struct {
 }
 
 // ChatConnection is one browser attached to a room's websocket.
+//
+// A connection with no UserId is a guest: anyone may watch a room, so the
+// socket is allowed to exist without an account, but only a connection that
+// carries a user id can write, delete or report.
 type ChatConnection struct {
 	ConnectionId string
 	UserId       string
 	Author       string
+}
+
+// SignedIn reports whether the connection belongs to an account.
+func (c ChatConnection) SignedIn() bool {
+	return c.UserId != ""
 }

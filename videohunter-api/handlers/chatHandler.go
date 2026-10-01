@@ -28,6 +28,10 @@ const (
 	// A signed in user can write ten messages a minute, which is enough for a
 	// conversation and useless for spam.
 	maxMessagesPerMinute = 10
+
+	// guestNotice is what a connection without an account is told when it
+	// tries to do anything other than read.
+	guestNotice = "Log in to join the conversation."
 )
 
 // ConnectionManagerFactory builds the client that posts back to a websocket.
@@ -46,19 +50,28 @@ type chatEnvelope struct {
 
 // ChatHandler serves the room attached to a video page.
 //
-// Chat is members only: the token is checked when the socket connects, and
-// every message is attributed from the stored connection rather than from
-// anything the browser claims, so nobody can post as someone else.
+// Reading is open to everyone: a room is public to the video page it sits on,
+// which is why a connection may exist without an account. Writing is not: the
+// token is checked when the socket connects, and every message is attributed
+// from the stored connection rather than from anything the browser claims, so
+// nobody can post as someone else.
 type ChatHandler struct {
 	Verifier    TokenVerifier
 	Rooms       repositories.ChatRepository
+	Profiles    repositories.UserDataRepository
 	Connections ConnectionManagerFactory
 }
 
-func NewChatHandler(verifier TokenVerifier, rooms repositories.ChatRepository, connections ConnectionManagerFactory) *ChatHandler {
+func NewChatHandler(
+	verifier TokenVerifier,
+	rooms repositories.ChatRepository,
+	profiles repositories.UserDataRepository,
+	connections ConnectionManagerFactory,
+) *ChatHandler {
 	return &ChatHandler{
 		Verifier:    verifier,
 		Rooms:       rooms,
+		Profiles:    profiles,
 		Connections: connections,
 	}
 }
@@ -85,18 +98,31 @@ func (h *ChatHandler) connect(request events.APIGatewayWebsocketProxyRequest) ev
 		return websocketResponse(http.StatusBadRequest)
 	}
 
-	claims, err := h.Verifier.Verify(auth.BearerToken(request.QueryStringParameters["Authorization"]))
-	if err != nil {
-		slog.Info("Rejecting an unauthenticated chat connection", "error", err)
-		return websocketResponse(http.StatusUnauthorized)
+	connection := domain.ChatConnection{ConnectionId: request.RequestContext.ConnectionID}
+
+	// A connection without a token is a guest. It may watch the room; every
+	// action that writes checks SignedIn before touching anything.
+	if token := strings.TrimSpace(request.QueryStringParameters["Authorization"]); token != "" {
+		claims, err := h.Verifier.Verify(auth.BearerToken(token))
+		if err != nil {
+			// A token that is present but unusable is an error rather than a
+			// guest: the browser should log in again, not silently lose the
+			// ability to post.
+			slog.Info("Rejecting a chat connection with an unusable token", "error", err)
+			return websocketResponse(http.StatusUnauthorized)
+		}
+
+		profile, err := h.Profiles.EnsureProfile(claims.Sub)
+		if err != nil {
+			slog.Error("Could not load the profile of a chat connection", "error", err)
+			return websocketResponse(http.StatusInternalServerError)
+		}
+
+		connection.UserId = claims.Sub
+		connection.Author = profile.Nickname
 	}
 
-	err = h.Rooms.SaveConnection(videoId, domain.ChatConnection{
-		ConnectionId: request.RequestContext.ConnectionID,
-		UserId:       claims.Sub,
-		Author:       claims.DisplayName(),
-	})
-	if err != nil {
+	if err := h.Rooms.SaveConnection(videoId, connection); err != nil {
 		slog.Error("Could not record a chat connection", "error", err)
 		return websocketResponse(http.StatusInternalServerError)
 	}
@@ -140,18 +166,46 @@ func (h *ChatHandler) message(request events.APIGatewayWebsocketProxyRequest) ev
 
 	switch envelope.Action {
 	case "recent":
+		// Reading is open to guests.
 		h.recent(manager, connectionId, envelope.VideoId, connection)
+
 	case "send":
+		if !h.requireAccount(manager, connection, connectionId) {
+			break
+		}
 		h.send(manager, connection, envelope.VideoId, envelope.Text)
+
 	case "delete":
+		if !h.requireAccount(manager, connection, connectionId) {
+			break
+		}
 		h.deleteMessage(manager, connection, envelope.VideoId, envelope.MessageId)
+
 	case "report":
+		if !h.requireAccount(manager, connection, connectionId) {
+			break
+		}
 		h.reportMessage(manager, connectionId, connection, envelope.VideoId, envelope.MessageId)
+
 	default:
 		h.sendTo(manager, connectionId, errorFrame("Unknown action."))
 	}
 
 	return websocketResponse(http.StatusOK)
+}
+
+// requireAccount refuses an action that writes when the connection is a guest,
+// answering with what the browser should do about it. It returns false when
+// the caller must not continue.
+func (h *ChatHandler) requireAccount(manager apigateway.ConnectionManager, connection *domain.ChatConnection, connectionId string) bool {
+
+	if connection.SignedIn() {
+		return true
+	}
+
+	h.sendTo(manager, connectionId, errorFrame(guestNotice))
+
+	return false
 }
 
 func (h *ChatHandler) recent(manager apigateway.ConnectionManager, connectionId, videoId string, connection *domain.ChatConnection) {
@@ -167,6 +221,9 @@ func (h *ChatHandler) recent(manager apigateway.ConnectionManager, connectionId,
 		"action":   "recent",
 		"messages": messages,
 		"user_id":  connection.UserId,
+		// The name this connection writes under, so the browser can say who
+		// it is without a second request. Empty for a guest.
+		"nickname": connection.Author,
 	})
 }
 

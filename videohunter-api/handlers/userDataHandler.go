@@ -5,6 +5,7 @@ import (
 	"log/slog"
 	"net/http"
 	"strings"
+	"unicode"
 
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/victoraldir/myvideohunterapi/adapters/cognito"
@@ -15,6 +16,13 @@ import (
 
 // folderNameMaxLength matches what the library screen shows without wrapping.
 const folderNameMaxLength = 60
+
+// Nicknames are what a chat room shows, so they are kept short enough to fit
+// beside a message.
+const (
+	nicknameMinLength = 3
+	nicknameMaxLength = 20
+)
 
 // maxDescribedVideos bounds the per-video lookups behind listing a library.
 // The library is a browsing aid, not a mirror of the video table, and an
@@ -61,8 +69,11 @@ func (h *UserDataHandler) Handle(request events.APIGatewayProxyRequest) (events.
 
 	switch request.Resource {
 	case "/me":
-		if request.HTTPMethod == http.MethodDelete {
+		switch request.HTTPMethod {
+		case http.MethodDelete:
 			return h.deleteAccount(claims), nil
+		case http.MethodPatch:
+			return h.updateProfile(claims, request), nil
 		}
 		return h.me(claims), nil
 
@@ -98,12 +109,48 @@ func (h *UserDataHandler) Handle(request events.APIGatewayProxyRequest) (events.
 }
 
 type meResponse struct {
-	UserId string `json:"user_id"`
-	Name   string `json:"name"`
+	UserId   string `json:"user_id"`
+	Nickname string `json:"nickname"`
 }
 
+// me returns the account's public identity. The nickname is created here if
+// this is the first time the account has been seen, so a user never has to
+// pick one before they can join a chat.
 func (h *UserDataHandler) me(claims *auth.Claims) events.APIGatewayProxyResponse {
-	return jsonValue(http.StatusOK, meResponse{UserId: claims.Sub, Name: claims.DisplayName()})
+
+	profile, err := h.Library.EnsureProfile(claims.Sub)
+	if err != nil {
+		slog.Error("Could not load a profile", "error", err)
+		return jsonResponse(http.StatusInternalServerError, "We could not load your account. Please try again.")
+	}
+
+	return jsonValue(http.StatusOK, meResponse{UserId: claims.Sub, Nickname: profile.Nickname})
+}
+
+// updateProfile changes the nickname. It is the only thing about an account
+// the user can change, and the only thing a room shows.
+func (h *UserDataHandler) updateProfile(claims *auth.Claims, request events.APIGatewayProxyRequest) events.APIGatewayProxyResponse {
+
+	var payload struct {
+		Nickname string `json:"nickname"`
+	}
+
+	if err := decodeBody(request.Body, &payload); err != nil {
+		return jsonResponse(http.StatusBadRequest, "Give yourself a nickname.")
+	}
+
+	nickname, ok := validNickname(payload.Nickname)
+	if !ok {
+		return jsonResponse(http.StatusBadRequest,
+			"Nicknames are 3 to 20 characters, using letters, numbers, spaces, dots, dashes or underscores.")
+	}
+
+	if err := h.Library.SetNickname(claims.Sub, nickname); err != nil {
+		slog.Error("Could not save a nickname", "error", err)
+		return jsonResponse(http.StatusInternalServerError, "We could not save your nickname. Please try again.")
+	}
+
+	return noContentResponse()
 }
 
 // deleteAccount removes everything the user owns and then the account itself.
@@ -355,4 +402,37 @@ func requestFolderName(request events.APIGatewayProxyRequest) string {
 	}
 
 	return payload.Name
+}
+
+// validNickname trims a nickname and checks it is something a room can show:
+// a readable length, and only characters that cannot be used to draw a link
+// or break the page. At least one letter is required so a nickname cannot be
+// a number that reads as an id.
+func validNickname(raw string) (string, bool) {
+
+	nickname := sanitizeText(raw)
+
+	length := len([]rune(nickname))
+	if length < nicknameMinLength || length > nicknameMaxLength {
+		return "", false
+	}
+
+	hasLetter := false
+
+	for _, character := range nickname {
+		switch {
+		case unicode.IsLetter(character):
+			hasLetter = true
+		case unicode.IsDigit(character):
+		case character == ' ', character == '.', character == '-', character == '_':
+		default:
+			return "", false
+		}
+	}
+
+	if !hasLetter {
+		return "", false
+	}
+
+	return nickname, true
 }

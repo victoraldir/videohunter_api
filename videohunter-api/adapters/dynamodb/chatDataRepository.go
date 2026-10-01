@@ -85,15 +85,27 @@ func messageSortKey(messageId string) string {
 
 func (d *chatDataRepository) SaveConnection(videoId string, connection domain.ChatConnection) error {
 
+	item := map[string]*dynamodb.AttributeValue{
+		"pk":        {S: aws.String(roomPartition(videoId))},
+		"sk":        {S: aws.String(connectionSortKey(connection.ConnectionId))},
+		"expiresAt": {N: aws.String(fmt.Sprint(time.Now().Add(connectionTTL).Unix()))},
+	}
+
+	// A guest connection has no user id, and an empty string is rejected
+	// because userId is the key of an index. Leaving the attribute out keeps
+	// the index sparse, which is what a guest should be: there is no account
+	// for their connection to be cleaned up with.
+	if connection.SignedIn() {
+		item["userId"] = &dynamodb.AttributeValue{S: aws.String(connection.UserId)}
+	}
+
+	if connection.Author != "" {
+		item["author"] = &dynamodb.AttributeValue{S: aws.String(connection.Author)}
+	}
+
 	_, err := d.client.PutItem(&dynamodb.PutItemInput{
 		TableName: aws.String(d.tableName),
-		Item: map[string]*dynamodb.AttributeValue{
-			"pk":        {S: aws.String(roomPartition(videoId))},
-			"sk":        {S: aws.String(connectionSortKey(connection.ConnectionId))},
-			"userId":    {S: aws.String(connection.UserId)},
-			"author":    {S: aws.String(connection.Author)},
-			"expiresAt": {N: aws.String(fmt.Sprint(time.Now().Add(connectionTTL).Unix()))},
-		},
+		Item:      item,
 	})
 
 	return err

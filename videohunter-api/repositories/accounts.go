@@ -11,8 +11,16 @@ import (
 var ErrFolderNotFound = errors.New("folder not found")
 
 // UserDataRepository stores what a signed in user owns: the folders of saved
-// videos, and the users they have blocked in chat.
+// videos, the users they have blocked in chat, and their public profile.
 type UserDataRepository interface {
+	// EnsureProfile returns the user's profile, creating it with a generated
+	// nickname the first time it is asked for, so no account is ever without
+	// one and no separate sign up step can be missed.
+	EnsureProfile(userId string) (*domain.Profile, error)
+
+	// SetNickname replaces the nickname of an existing profile.
+	SetNickname(userId, nickname string) error
+
 	ListFolders(userId string) ([]domain.Folder, error)
 	CreateFolder(userId, name string) (*domain.Folder, error)
 	RenameFolder(userId, folderId, name string) error

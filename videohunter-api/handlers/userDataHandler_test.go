@@ -27,6 +27,10 @@ func (s *stubVerifier) Verify(token string) (*auth.Claims, error) {
 // stubUserData records what the handler asked for and answers with whatever
 // the test configured, so the tests assert behaviour rather than DynamoDB.
 type stubUserData struct {
+	profile        *domain.Profile
+	profileErr     error
+	nicknames      []string
+	setNicknameErr error
 	folders        []domain.Folder
 	listErr        error
 	createdFolder  *domain.Folder
@@ -47,6 +51,25 @@ type stubUserData struct {
 	unblockErr     error
 	deletedAll     []string
 	deleteAllErr   error
+}
+
+// profileOrDefault answers with the configured profile, or a fixed nickname so
+// that tests do not depend on the generator.
+func (s *stubUserData) EnsureProfile(string) (*domain.Profile, error) {
+	if s.profileErr != nil {
+		return nil, s.profileErr
+	}
+
+	if s.profile != nil {
+		return s.profile, nil
+	}
+
+	return &domain.Profile{Nickname: "Tester", CreatedAt: "2026-01-01T00:00:00Z"}, nil
+}
+
+func (s *stubUserData) SetNickname(_ string, nickname string) error {
+	s.nicknames = append(s.nicknames, nickname)
+	return s.setNicknameErr
 }
 
 func (s *stubUserData) ListFolders(string) ([]domain.Folder, error) { return s.folders, s.listErr }
@@ -184,9 +207,46 @@ func TestUserDataHandler_ReturnsTheSignedInUser(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, 200, response.StatusCode)
 	assert.Contains(t, response.Body, `"user_id":"user-1"`)
-	// The identifier is safe to send back; the email is not echoed.
-	assert.Contains(t, response.Body, `"name":"Victor"`)
+	// The nickname is the only name the account has, and the email is never
+	// echoed, not even as a fallback.
+	assert.Contains(t, response.Body, `"nickname":"Tester"`)
 	assert.NotContains(t, response.Body, "victor@example.com")
+	assert.NotContains(t, response.Body, "Victor")
+}
+
+func TestUserDataHandler_ChangesTheNickname(t *testing.T) {
+
+	library := &stubUserData{}
+	handler := newTestHandler(signedIn(), library, &stubVideos{})
+
+	response, err := handler.Handle(request("/me", "PATCH", authHeader(), `{"nickname":"  Night Owl  "}`, nil))
+
+	require.NoError(t, err)
+	assert.Equal(t, 204, response.StatusCode)
+	assert.Equal(t, []string{"Night Owl"}, library.nicknames)
+}
+
+func TestUserDataHandler_RejectsNicknamesThatCouldNotBeShown(t *testing.T) {
+
+	for name, body := range map[string]string{
+		"too short":      `{"nickname":"ab"}`,
+		"too long":       `{"nickname":"` + string(make([]rune, 21)) + `"}`,
+		"empty":          `{"nickname":"   "}`,
+		"markup":         `{"nickname":"<b>hi</b>"}`,
+		"not a string":   `{"nickname":12}`,
+		"nothing at all": `{}`,
+	} {
+		t.Run(name, func(t *testing.T) {
+			library := &stubUserData{}
+			handler := newTestHandler(signedIn(), library, &stubVideos{})
+
+			response, err := handler.Handle(request("/me", "PATCH", authHeader(), body, nil))
+
+			require.NoError(t, err)
+			assert.Equal(t, 400, response.StatusCode)
+			assert.Empty(t, library.nicknames)
+		})
+	}
 }
 
 func TestUserDataHandler_ListsFolders(t *testing.T) {

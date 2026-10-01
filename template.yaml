@@ -360,6 +360,12 @@ Resources:
             RestApiId: !Ref GatewayAPI
             Path: /me
             Method: DELETE
+        UpdateProfile:
+          Type: Api
+          Properties:
+            RestApiId: !Ref GatewayAPI
+            Path: /me
+            Method: PATCH
         ListFolders:
           Type: Api
           Properties:
@@ -448,12 +454,17 @@ Resources:
       Environment:
         Variables:
           CHAT_DATA_TABLE: !Ref ChatDataTableName
+          # The name a room shows comes from the account's profile, which is
+          # looked up (and created on first sight) when a socket connects.
+          USER_DATA_TABLE: !Ref UserDataTableName
           COGNITO_USER_POOL_ID: !Ref UserPool
           COGNITO_CLIENT_ID: !Ref UserPoolClient
           COGNITO_REGION: !Ref Region
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref ChatDataTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref UserDataTable
         # Needed to push a message to the other sockets in the room.
         - Statement:
             - Effect: Allow

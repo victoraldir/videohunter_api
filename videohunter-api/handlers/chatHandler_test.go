@@ -150,12 +150,16 @@ func websocketRequest(routeKey, body string, query map[string]string) events.API
 }
 
 func chatHandler(verifier TokenVerifier, chat *stubChat, connections *fakeConnections) *ChatHandler {
-	return NewChatHandler(verifier, chat, func(string, string) apigateway.ConnectionManager {
+	return chatHandlerWithProfile(verifier, chat, &stubUserData{}, connections)
+}
+
+func chatHandlerWithProfile(verifier TokenVerifier, chat *stubChat, profiles *stubUserData, connections *fakeConnections) *ChatHandler {
+	return NewChatHandler(verifier, chat, profiles, func(string, string) apigateway.ConnectionManager {
 		return connections
 	})
 }
 
-func TestChatHandler_ConnectRequiresAVideoAndALogin(t *testing.T) {
+func TestChatHandler_ConnectRequiresAVideoAndAcceptsGuests(t *testing.T) {
 
 	chat := &stubChat{}
 	connections := newFakeConnections()
@@ -168,24 +172,84 @@ func TestChatHandler_ConnectRequiresAVideoAndALogin(t *testing.T) {
 	assert.Equal(t, 400, response.StatusCode)
 	assert.Nil(t, chat.savedConn)
 
-	// Room but no valid token.
+	// Room but no token at all: a guest, allowed to watch.
+	response, err = chatHandler(verifier, chat, connections).Handle(
+		websocketRequest("$connect", "", map[string]string{"videoId": "video-1"}))
+	require.NoError(t, err)
+	assert.Equal(t, 200, response.StatusCode)
+	require.NotNil(t, chat.savedConn)
+	assert.Equal(t, "video-1", chat.savedVideoId)
+	assert.Equal(t, "", chat.savedConn.UserId)
+	assert.Equal(t, "", chat.savedConn.Author)
+	assert.False(t, chat.savedConn.SignedIn())
+
+	// A token that is present but unusable is still an error, not a guest.
 	rejecting := &stubVerifier{err: errors.New("expired")}
 	response, err = chatHandler(rejecting, chat, connections).Handle(
 		websocketRequest("$connect", "", map[string]string{"videoId": "video-1", "Authorization": "bad"}))
 	require.NoError(t, err)
 	assert.Equal(t, 401, response.StatusCode)
-	assert.Nil(t, chat.savedConn)
 
-	// Both, and the identity comes from the token.
+	// Both, and the room name comes from the stored profile rather than from
+	// anything the token carries.
 	response, err = chatHandler(verifier, chat, connections).Handle(
 		websocketRequest("$connect", "", map[string]string{"videoId": "video-1", "Authorization": "a-token"}))
 	require.NoError(t, err)
 	assert.Equal(t, 200, response.StatusCode)
 	require.NotNil(t, chat.savedConn)
-	assert.Equal(t, "video-1", chat.savedVideoId)
 	assert.Equal(t, "user-1", chat.savedConn.UserId)
-	assert.Equal(t, "Victor", chat.savedConn.Author)
+	assert.Equal(t, "Tester", chat.savedConn.Author)
 	assert.Equal(t, "conn-1", chat.savedConn.ConnectionId)
+}
+
+func TestChatHandler_LetsAGuestReadButNotWrite(t *testing.T) {
+
+	connections := newFakeConnections()
+
+	// A guest connection, the shape the connect handler stores for an
+	// unauthenticated socket.
+	guest := &stubChat{
+		connection: &domain.ChatConnection{ConnectionId: "conn-1"},
+		recent: []domain.ChatMessage{
+			{Id: "message-1", UserId: "user-2", Author: "Ana", Text: "hello", CreatedAt: "2026-01-01T00:00:00Z"},
+		},
+	}
+
+	// Reading works.
+	response, err := chatHandler(&stubVerifier{}, guest, connections).Handle(
+		websocketRequest("$default", `{"action":"recent","video_id":"video-1"}`, nil))
+	require.NoError(t, err)
+	assert.Equal(t, 200, response.StatusCode)
+
+	frames := connections.frames(t, "conn-1")
+	require.Len(t, frames, 1)
+	assert.Equal(t, "recent", frames[0]["action"])
+	assert.Equal(t, "", frames[0]["user_id"])
+
+	// Writing does not, and nothing is stored.
+	response, err = chatHandler(&stubVerifier{}, guest, connections).Handle(
+		websocketRequest("$default", `{"action":"send","video_id":"video-1","text":"spam"}`, nil))
+	require.NoError(t, err)
+	assert.Equal(t, 200, response.StatusCode)
+	assert.Empty(t, guest.saved)
+	assert.Empty(t, guest.reported)
+	assert.Empty(t, guest.rateChecked)
+
+	frames = connections.frames(t, "conn-1")
+	require.Len(t, frames, 2)
+	assert.Equal(t, "error", frames[1]["action"])
+	assert.Equal(t, guestNotice, frames[1]["message"])
+
+	// Deleting and reporting are refused the same way.
+	for _, action := range []string{"delete", "report"} {
+		response, err = chatHandler(&stubVerifier{}, guest, connections).Handle(
+			websocketRequest("$default", `{"action":"`+action+`","video_id":"video-1","message_id":"message-1"}`, nil))
+		require.NoError(t, err)
+		assert.Equal(t, 200, response.StatusCode)
+	}
+
+	assert.False(t, guest.deleted)
+	assert.Empty(t, guest.reported)
 }
 
 func TestChatHandler_IgnoresMessagesFromUnknownConnections(t *testing.T) {

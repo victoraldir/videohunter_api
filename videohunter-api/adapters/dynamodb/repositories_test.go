@@ -155,6 +155,14 @@ func (f *fakeDB) UpdateItem(input *dynamodb.UpdateItemInput) (*dynamodb.UpdateIt
 		item[*name] = input.ExpressionAttributeValues[":name"]
 	}
 
+	if value, ok := input.ExpressionAttributeValues[":nickname"]; ok {
+		item["nickname"] = value
+	}
+
+	if value, ok := input.ExpressionAttributeValues[":now"]; ok && item["createdAt"] == nil {
+		item["createdAt"] = value
+	}
+
 	if strings.Contains(aws.StringValue(input.UpdateExpression), "ADD #count") {
 		current := 0
 		if item["count"] != nil {
@@ -240,6 +248,43 @@ func reverse(values []string) {
 	for i, j := 0, len(values)-1; i < j; i, j = i+1, j-1 {
 		values[i], values[j] = values[j], values[i]
 	}
+}
+
+func TestUserDataRepository_GivesAProfileAGeneratedNicknameAndKeepsIt(t *testing.T) {
+
+	db := newFakeDB()
+	library := NewUserDataRepository(db, "user_data")
+
+	first, err := library.EnsureProfile("user-1")
+	require.NoError(t, err)
+	require.NotEmpty(t, first.Nickname)
+	// The nickname is a label, not anything derived from an account: it must
+	// not look like an email or an identifier.
+	assert.NotContains(t, first.Nickname, "@")
+	assert.GreaterOrEqual(t, len([]rune(first.Nickname)), 3)
+	assert.LessOrEqual(t, len([]rune(first.Nickname)), 20)
+
+	// Asking again returns the same nickname rather than generating a new one.
+	again, err := library.EnsureProfile("user-1")
+	require.NoError(t, err)
+	assert.Equal(t, first.Nickname, again.Nickname)
+
+	// A chosen nickname replaces the generated one and sticks.
+	require.NoError(t, library.SetNickname("user-1", "Night Owl"))
+	changed, err := library.EnsureProfile("user-1")
+	require.NoError(t, err)
+	assert.Equal(t, "Night Owl", changed.Nickname)
+
+	// Nicknames are per account.
+	other, err := library.EnsureProfile("user-2")
+	require.NoError(t, err)
+	assert.NotEqual(t, "Night Owl", other.Nickname)
+
+	// Setting a nickname repairs an account that has no profile row yet.
+	require.NoError(t, library.SetNickname("user-3", "Early Bird"))
+	fresh, err := library.EnsureProfile("user-3")
+	require.NoError(t, err)
+	assert.Equal(t, "Early Bird", fresh.Nickname)
 }
 
 func TestUserDataRepository_GroupsSavedVideosIntoTheirFolders(t *testing.T) {
@@ -381,6 +426,43 @@ func TestChatDataRepository_ConnectionsAreKeptPerRoom(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, room, 1)
 	assert.Equal(t, "conn-1", room[0].ConnectionId)
+}
+
+func TestChatDataRepository_AGuestConnectionCarriesNoUserId(t *testing.T) {
+
+	db := newFakeDB()
+	chat := NewChatDataRepository(db, "chat_data")
+
+	require.NoError(t, chat.SaveConnection("video-1", domain.ChatConnection{ConnectionId: "guest-1"}))
+	require.NoError(t, chat.SaveConnection("video-1", domain.ChatConnection{
+		ConnectionId: "user-1", UserId: "user-1", Author: "Tester",
+	}))
+
+	// The attribute is left out rather than stored empty. userId is the key of
+	// an index, and DynamoDB rejects an empty value for an index key, which is
+	// what made every guest connection fail to be recorded at all.
+	guest := db.items["ROOM#video-1|CONN#guest-1"]
+	require.NotNil(t, guest)
+	assert.Nil(t, guest["userId"])
+
+	member := db.items["ROOM#video-1|CONN#user-1"]
+	require.NotNil(t, member)
+	assert.Equal(t, "user-1", stringValue(member["userId"]))
+
+	// Both are part of the room, and the guest still reads as nobody.
+	room, err := chat.RoomConnections("video-1")
+	require.NoError(t, err)
+	require.Len(t, room, 2)
+
+	for _, connection := range room {
+		if connection.ConnectionId != "guest-1" {
+			continue
+		}
+
+		assert.False(t, connection.SignedIn())
+		assert.Empty(t, connection.UserId)
+		assert.Empty(t, connection.Author)
+	}
 }
 
 func TestChatDataRepository_MessagesComeBackInReadingOrder(t *testing.T) {

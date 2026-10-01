@@ -26,10 +26,12 @@ type UserDataDBClient interface {
 // The user data table keys every owned row under the user id, so a whole
 // library is one query:
 //
-//	pk = <Cognito sub>   sk = FOLDER#<id>                     folder
-//	pk = <Cognito sub>   sk = FOLDER#<id>#VIDEO#<video id>    saved video
-//	pk = <Cognito sub>   sk = BLOCK#<blocked user id>         chat block
+//	pk = <Cognito sub>   sk = PROFILE                    nickname
+//	pk = <Cognito sub>   sk = FOLDER#<id>                folder
+//	pk = <Cognito sub>   sk = FOLDER#<id>#VIDEO#<vid>    saved video
+//	pk = <Cognito sub>   sk = BLOCK#<blocked user id>    chat block
 const (
+	profileKey   = "PROFILE"
 	folderPrefix = "FOLDER#"
 	videoMarker  = "#VIDEO#"
 	blockPrefix  = "BLOCK#"
@@ -58,6 +60,91 @@ func videoKey(folderId, videoId string) string {
 
 func blockKey(userId string) string {
 	return blockPrefix + userId
+}
+
+// EnsureProfile returns the stored profile, generating and storing a nickname
+// the first time an account is seen. Two first requests from a fresh account
+// can arrive together, so the insert is conditional and the loser reads back
+// the winner's row instead of replacing it.
+func (d *userDataRepository) EnsureProfile(userId string) (*domain.Profile, error) {
+
+	profile, err := d.profile(userId)
+	if err != nil {
+		return nil, err
+	}
+
+	if profile != nil {
+		return profile, nil
+	}
+
+	candidate := &domain.Profile{
+		Nickname:  utils.NewNickname(),
+		CreatedAt: time.Now().UTC().Format(time.RFC3339Nano),
+	}
+
+	_, err = d.client.PutItem(&dynamodb.PutItemInput{
+		TableName: aws.String(d.tableName),
+		Item: map[string]*dynamodb.AttributeValue{
+			"pk":        {S: aws.String(userId)},
+			"sk":        {S: aws.String(profileKey)},
+			"nickname":  {S: aws.String(candidate.Nickname)},
+			"createdAt": {S: aws.String(candidate.CreatedAt)},
+		},
+		ConditionExpression: aws.String("attribute_not_exists(sk)"),
+	})
+	if err != nil {
+		if isConditionFailed(err) {
+			return d.profile(userId)
+		}
+
+		return nil, err
+	}
+
+	return candidate, nil
+}
+
+// SetNickname upserts the nickname. It is written as an update rather than a
+// conditional put so that it also repairs an account that somehow has no
+// profile row yet.
+func (d *userDataRepository) SetNickname(userId, nickname string) error {
+
+	_, err := d.client.UpdateItem(&dynamodb.UpdateItemInput{
+		TableName: aws.String(d.tableName),
+		Key: map[string]*dynamodb.AttributeValue{
+			"pk": {S: aws.String(userId)},
+			"sk": {S: aws.String(profileKey)},
+		},
+		UpdateExpression: aws.String("SET nickname = :nickname, createdAt = if_not_exists(createdAt, :now)"),
+		ExpressionAttributeValues: map[string]*dynamodb.AttributeValue{
+			":nickname": {S: aws.String(nickname)},
+			":now":      {S: aws.String(time.Now().UTC().Format(time.RFC3339Nano))},
+		},
+	})
+
+	return err
+}
+
+func (d *userDataRepository) profile(userId string) (*domain.Profile, error) {
+
+	output, err := d.client.GetItem(&dynamodb.GetItemInput{
+		TableName: aws.String(d.tableName),
+		Key: map[string]*dynamodb.AttributeValue{
+			"pk": {S: aws.String(userId)},
+			"sk": {S: aws.String(profileKey)},
+		},
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	if output == nil || output.Item == nil {
+		return nil, nil
+	}
+
+	return &domain.Profile{
+		Nickname:  stringValue(output.Item["nickname"]),
+		CreatedAt: stringValue(output.Item["createdAt"]),
+	}, nil
 }
 
 func (d *userDataRepository) ListFolders(userId string) ([]domain.Folder, error) {

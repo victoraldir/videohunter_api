@@ -114,13 +114,15 @@ func NewUserDataHandler(config config_api.Configuration) *handlers.UserDataHandl
 }
 
 // NewChatHandler builds the handler behind the websocket that serves the chat
-// room of a video page.
+// room of a video page. It shares the user data repository so that the name a
+// room shows comes from the same profile the library shows.
 func NewChatHandler(config config_api.Configuration) *handlers.ChatHandler {
 	client := dynamoClient(config)
 
 	return handlers.NewChatHandler(
 		auth.NewVerifier(config.CognitoRegion, config.CognitoUserPoolID, config.CognitoClientID),
 		dynamodb.NewChatDataRepository(client, config.ChatDataTableName),
+		dynamodb.NewUserDataRepository(client, config.UserDataTableName),
 		apigateway.NewConnectionManager,
 	)
 }
