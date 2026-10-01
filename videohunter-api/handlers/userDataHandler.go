@@ -8,11 +8,17 @@ import (
 
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/victoraldir/myvideohunterapi/auth"
+	"github.com/victoraldir/myvideohunterapi/domain"
 	"github.com/victoraldir/myvideohunterapi/repositories"
 )
 
 // folderNameMaxLength matches what the library screen shows without wrapping.
 const folderNameMaxLength = 60
+
+// maxDescribedVideos bounds the per-video lookups behind listing a library.
+// The library is a browsing aid, not a mirror of the video table, and an
+// unbounded loop would make a single request arbitrarily slow.
+const maxDescribedVideos = 60
 
 // UserDataHandler serves everything a signed in user owns: the folders of
 // saved videos, and the chat block list. All of it is reached over the
@@ -94,7 +100,41 @@ func (h *UserDataHandler) listFolders(claims *auth.Claims) events.APIGatewayProx
 		return jsonResponse(http.StatusInternalServerError, "We could not load your library. Please try again.")
 	}
 
+	h.describeVideos(folders)
+
 	return jsonValue(http.StatusOK, map[string]interface{}{"folders": folders})
+}
+
+// describeVideos fills in the thumbnail and the post text of the saved videos
+// so the library page can render them as cards. A video that has since been
+// removed from the video table is left as a bare id and stays deletable.
+func (h *UserDataHandler) describeVideos(folders []domain.Folder) {
+
+	described := 0
+
+	for folderIndex := range folders {
+		for videoIndex := range folders[folderIndex].Videos {
+			if described >= maxDescribedVideos {
+				return
+			}
+			described++
+
+			videoId := folders[folderIndex].Videos[videoIndex].VideoId
+
+			video, err := h.Videos.GetVideo(videoId)
+			if err != nil {
+				slog.Warn("Could not describe a saved video", "videoId", videoId, "error", err)
+				continue
+			}
+
+			if video == nil {
+				continue
+			}
+
+			folders[folderIndex].Videos[videoIndex].ThumbnailUrl = video.ThumbnailUrl
+			folders[folderIndex].Videos[videoIndex].Description = video.Text
+		}
+	}
 }
 
 func (h *UserDataHandler) createFolder(claims *auth.Claims, request events.APIGatewayProxyRequest) events.APIGatewayProxyResponse {

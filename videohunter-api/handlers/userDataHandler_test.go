@@ -86,16 +86,26 @@ func (s *stubUserData) UnblockUser(_ string, blockedUserId string) error {
 }
 
 type stubVideos struct {
-	video *domain.Video
-	err   error
-	asked []string
+	video  *domain.Video
+	videos map[string]*domain.Video
+	err    error
+	asked  []string
 }
 
 func (s *stubVideos) SaveVideo(video *domain.Video) (*domain.Video, error) { return video, nil }
 
 func (s *stubVideos) GetVideo(videoId string) (*domain.Video, error) {
 	s.asked = append(s.asked, videoId)
-	return s.video, s.err
+
+	if s.err != nil {
+		return nil, s.err
+	}
+
+	if video, ok := s.videos[videoId]; ok {
+		return video, nil
+	}
+
+	return s.video, nil
 }
 
 func signedIn() *stubVerifier {
@@ -165,6 +175,34 @@ func TestUserDataHandler_ListsFolders(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, 200, response.StatusCode)
 	assert.Contains(t, response.Body, `"folders":[{"id":"f1","name":"Music"`)
+}
+
+func TestUserDataHandler_DescribesSavedVideosSoTheLibraryCanDrawCards(t *testing.T) {
+
+	library := &stubUserData{folders: []domain.Folder{{
+		Id:   "f1",
+		Name: "Music",
+		Videos: []domain.SavedVideo{
+			{VideoId: "video-a"},
+			// This one is gone from the video table: it stays listed, with
+			// only its id, so it can still be removed from the folder.
+			{VideoId: "video-gone"},
+		},
+	}}}
+
+	videos := &stubVideos{videos: map[string]*domain.Video{
+		"video-a": {IdDB: "video-a", ThumbnailUrl: "https://cdn.example.com/a.jpg", Text: "A post"},
+	}}
+
+	handler := NewUserDataHandler(signedIn(), library, videos)
+
+	response, err := handler.Handle(request("/me/folders", "GET", authHeader(), "", nil))
+
+	require.NoError(t, err)
+	assert.Equal(t, 200, response.StatusCode)
+	assert.Contains(t, response.Body, `"video_id":"video-a","saved_at":"","thumbnail_url":"https://cdn.example.com/a.jpg","description":"A post"`)
+	assert.Contains(t, response.Body, `"video_id":"video-gone"`)
+	assert.Equal(t, []string{"video-a", "video-gone"}, videos.asked)
 }
 
 func TestUserDataHandler_CreatesAFolder(t *testing.T) {
