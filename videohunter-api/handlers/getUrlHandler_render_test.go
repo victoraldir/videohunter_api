@@ -7,6 +7,7 @@ import (
 
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	api_events "github.com/victoraldir/myvideohunterapi/events"
 )
@@ -89,6 +90,30 @@ func TestGetUrlHandle_Handle_RendersVideoPage(t *testing.T) {
 	// Caching headers.
 	assert.Equal(t, "public, max-age=3600, s-maxage=3600", response.Headers["Cache-Control"])
 	assert.Equal(t, "text/html; charset=utf-8", response.Headers["Content-Type"])
+}
+
+func TestGetUrlHandle_Handle_KeepsTheOptionalWidgetsOutOfTheWay(t *testing.T) {
+
+	handler := &GetUrlHandler{GerUrlUseCase: stubGetUrlUseCase{video: sampleTwitterVideo()}}
+
+	response, err := handler.Handle(events.APIGatewayProxyRequest{
+		PathParameters: map[string]string{"id": "abc123"},
+	})
+	require.NoError(t, err)
+
+	body := response.Body
+
+	// The save button and the chat are filled in by a script the static site
+	// owns. The page must keep working when that script is missing, so the
+	// hooks are empty containers and the download buttons do not depend on it.
+	assert.Contains(t, body, `<script defer src="/assets/video-page.js"></script>`)
+	assert.Contains(t, body, `<div id="vh-save"`)
+	assert.Contains(t, body, `<section id="vh-chat"`)
+
+	// Nothing about the chat is rendered server side: the page is cached at
+	// the edge for an hour and must stay identical for everyone.
+	assert.NotContains(t, body, "vh-chat-loading")
+	assert.NotContains(t, body, "Authorization")
 }
 
 func TestGetUrlHandle_Handle_RendersErrorPageWhenVideoIsNotFound(t *testing.T) {

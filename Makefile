@@ -2,7 +2,7 @@ STACK_NAME ?= videohunter-api
 REGION := us-east-1
 APP_FOLDER := videohunter-api
 APP_LOCAL_NETWORK := myvideohunter-api
-FUNCTIONS := create-url get-url download-video-hls mix-audio-video create-url-batch
+FUNCTIONS := create-url get-url download-video-hls mix-audio-video create-url-batch user-data chat config
 MODULE_DIRS := videohunter-api videohunter-bsky videohunter-shared videohunter-telegram videohunter-twitter
 # Modules whose test suites do not need live external services.
 UNIT_TEST_MODULES := videohunter-bsky videohunter-telegram videohunter-twitter

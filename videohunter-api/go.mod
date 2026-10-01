@@ -1,5 +1,6 @@
 require (
 	github.com/aws/aws-lambda-go v1.47.0
+	github.com/golang-jwt/jwt/v5 v5.3.1
 	github.com/stretchr/testify v1.10.0
 	go.uber.org/mock v0.5.0
 	golang.org/x/exp v0.0.0-20241108190413-2d47ceb2692f

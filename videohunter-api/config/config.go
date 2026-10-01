@@ -34,12 +34,26 @@ const (
 type Configuration struct {
 	VideoTableName     string      `env:"VIDEO_TABLE"`
 	SettingsTableName  string      `env:"SETTINGS_TABLE"`
+	UserDataTableName  string      `env:"USER_DATA_TABLE"`
+	ChatDataTableName  string      `env:"CHAT_DATA_TABLE"`
 	LogLevel           LogLevel    `env:"LOG_LEVEL"`
 	AwsApiKey          string      `env:"AWS_ACCESS_KEY_ID"`
 	AwsSecretAccessKey string      `env:"AWS_SECRET_ACCESS_KEY"`
 	LocalDynamodbAddr  string      `env:"LOCAL_DYNAMODB_ADDR"`
 	Region             string      `env:"REGION"`
 	Environment        Environment `env:"ENVIRONMENT"`
+
+	// Cognito identifies the user pool that signs the tokens the account,
+	// folder and chat endpoints accept. CognitoDomain is the hosted UI
+	// hostname, only used to hand the browser its login endpoints.
+	CognitoRegion     string `env:"COGNITO_REGION"`
+	CognitoUserPoolID string `env:"COGNITO_USER_POOL_ID"`
+	CognitoClientID   string `env:"COGNITO_CLIENT_ID"`
+	CognitoDomain     string `env:"COGNITO_DOMAIN"`
+
+	// ChatWsEndpoint is the websocket URL of the chat, published to the
+	// browser by the config endpoint.
+	ChatWsEndpoint string `env:"CHAT_WS_ENDPOINT"`
 }
 
 var Config Configuration
@@ -100,6 +114,10 @@ func loadEnv() {
 
 	if Config.Region == "" {
 		Config.Region = "us-east-1"
+	}
+
+	if Config.CognitoRegion == "" {
+		Config.CognitoRegion = Config.Region
 	}
 
 	if Config.Environment == "" {
