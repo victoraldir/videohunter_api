@@ -320,6 +320,80 @@ Resources:
       Domain: !Ref CognitoDomainPrefix
       UserPoolId: !Ref UserPool
 
+  # The sign in page is the first thing a new user ever sees, and by default
+  # it looks nothing like the site. Cognito styles it from a fixed list of
+  # class names and rejects the whole stylesheet for anything outside that
+  # list, including element and pseudo element selectors, so the branding is a
+  # background image that ships with the site's own assets rather than text
+  # this file cannot place. The page behind the card cannot be styled at all.
+  UserPoolUICustomization:
+    Type: AWS::Cognito::UserPoolUICustomizationAttachment
+    Properties:
+      UserPoolId: !Ref UserPool
+      ClientId: !Ref UserPoolClient
+      CSS: |
+        /* Matches the colours of the rest of the site: a white panel, and the
+         * primary blue for the header, the button and the links. */
+        .background-customizable {
+          background-color: #ffffff;
+          border: 1px solid #dee2e6;
+          border-radius: 0.5rem;
+        }
+
+        .banner-customizable {
+          background-color: #0d6efd;
+          background-image: url("https://www.myvideohunter.com/assets/signin-logo.png");
+          background-repeat: no-repeat;
+          background-position: center;
+          background-size: auto 44px;
+          border-radius: 0.5rem 0.5rem 0 0;
+          padding: 26px 0;
+        }
+
+        .textDescription-customizable {
+          color: #212529;
+          font-weight: 600;
+        }
+
+        .label-customizable {
+          color: #212529;
+          font-weight: 500;
+        }
+
+        .inputField-customizable {
+          background-color: #ffffff;
+          border: 1px solid #dee2e6;
+          border-radius: 0.375rem;
+          color: #212529;
+        }
+
+        .inputField-customizable:focus {
+          border-color: #86b7fe;
+          box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
+        }
+
+        .submitButton-customizable {
+          background-color: #0d6efd;
+          border-color: #0d6efd;
+          border-radius: 0.375rem;
+          color: #ffffff;
+          font-weight: 600;
+        }
+
+        .submitButton-customizable:hover {
+          background-color: #0b5ed7;
+          border-color: #0a58ca;
+          color: #ffffff;
+        }
+
+        .redirect-customizable {
+          color: #0d6efd;
+        }
+
+        .legalText-customizable {
+          color: #6c757d;
+        }
+
   # Google sign in, off by default so that a deploy never depends on
   # credentials the owner has not created yet. To turn it on:
   #   1. create a Google OAuth client with the redirect URI
