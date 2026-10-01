@@ -98,14 +98,23 @@ func (d *userDataRepository) ListFolders(userId string) ([]domain.Folder, error)
 		return nil, err
 	}
 
+	// CreatedAt is stored with millisecond precision, but two folders made in
+	// the same millisecond would still tie, and the id is what makes the order
+	// deterministic rather than whatever the query happened to return.
 	sort.SliceStable(folders, func(i, j int) bool {
-		return folders[i].CreatedAt < folders[j].CreatedAt
+		if folders[i].CreatedAt != folders[j].CreatedAt {
+			return folders[i].CreatedAt < folders[j].CreatedAt
+		}
+		return folders[i].Id < folders[j].Id
 	})
 
 	for i := range folders {
 		videos := folders[i].Videos
 		sort.SliceStable(videos, func(a, b int) bool {
-			return videos[a].SavedAt < videos[b].SavedAt
+			if videos[a].SavedAt != videos[b].SavedAt {
+				return videos[a].SavedAt < videos[b].SavedAt
+			}
+			return videos[a].VideoId < videos[b].VideoId
 		})
 	}
 
@@ -114,7 +123,9 @@ func (d *userDataRepository) ListFolders(userId string) ([]domain.Folder, error)
 
 func (d *userDataRepository) CreateFolder(userId, name string) (*domain.Folder, error) {
 
-	now := time.Now().UTC().Format(time.RFC3339)
+	// Nanosecond precision: a folder created a moment after another must sort
+	// after it, and a whole second is long enough to create several.
+	now := time.Now().UTC().Format(time.RFC3339Nano)
 
 	folder := &domain.Folder{
 		Id:        utils.NewId(),
@@ -210,7 +221,7 @@ func (d *userDataRepository) SaveVideoToFolder(userId, folderId, videoId string)
 			"pk":      {S: aws.String(userId)},
 			"sk":      {S: aws.String(videoKey(folderId, videoId))},
 			"videoId": {S: aws.String(videoId)},
-			"savedAt": {S: aws.String(time.Now().UTC().Format(time.RFC3339))},
+			"savedAt": {S: aws.String(time.Now().UTC().Format(time.RFC3339Nano))},
 		},
 	})
 	if err != nil {
@@ -274,6 +285,23 @@ func (d *userDataRepository) UnblockUser(userId, blockedUserId string) error {
 	})
 
 	return err
+}
+
+// DeleteAll removes every row the user owns: folders, saved videos and the
+// chat block list. Deleting an account leaves nothing behind, and running it
+// twice is harmless.
+func (d *userDataRepository) DeleteAll(userId string) error {
+
+	keys := []string{}
+
+	err := d.eachItem(userId, "", func(item map[string]*dynamodb.AttributeValue) {
+		keys = append(keys, stringValue(item["sk"]))
+	})
+	if err != nil {
+		return err
+	}
+
+	return d.batchDelete(userId, keys)
 }
 
 // folder returns a folder row, or nil when the user has no folder with that id.

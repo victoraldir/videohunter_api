@@ -336,6 +336,14 @@ Resources:
         # Saving a video checks that its id was resolved before storing it.
         - DynamoDBReadPolicy:
             TableName: !Ref VideoTable
+        # Deleting an account also removes the chat data it left behind.
+        - DynamoDBCrudPolicy:
+            TableName: !Ref ChatDataTable
+        # "Delete my account" removes the account itself, last.
+        - Statement:
+            - Effect: Allow
+              Action: cognito-idp:AdminDeleteUser
+              Resource: !GetAtt UserPool.Arn
       Events:
         Me:
           Type: Api
@@ -343,6 +351,12 @@ Resources:
             RestApiId: !Ref GatewayAPI
             Path: /me
             Method: GET
+        DeleteAccount:
+          Type: Api
+          Properties:
+            RestApiId: !Ref GatewayAPI
+            Path: /me
+            Method: DELETE
         ListFolders:
           Type: Api
           Properties:
@@ -557,6 +571,11 @@ Resources:
   #
   # expiresAt is a TTL attribute, so DynamoDB deletes old connections and
   # messages on its own instead of a cleanup job doing it.
+  #
+  # The byUser index is what makes "delete my account" possible: a room is
+  # keyed by video, so without an index on the author a user's messages could
+  # not be found across rooms. It is keys only, because deleting a row needs
+  # nothing but its key.
   ChatDataTable:
     Type: AWS::DynamoDB::Table
     Properties:
@@ -567,11 +586,22 @@ Resources:
           AttributeType: S
         - AttributeName: sk
           AttributeType: S
+        - AttributeName: userId
+          AttributeType: S
       KeySchema:
         - AttributeName: pk
           KeyType: HASH
         - AttributeName: sk
           KeyType: RANGE
+      GlobalSecondaryIndexes:
+        - IndexName: byUser
+          KeySchema:
+            - AttributeName: userId
+              KeyType: HASH
+            - AttributeName: sk
+              KeyType: RANGE
+          Projection:
+            ProjectionType: KEYS_ONLY
       TimeToLiveSpecification:
         AttributeName: expiresAt
         Enabled: true

@@ -45,6 +45,8 @@ type stubUserData struct {
 	blockErr       error
 	unblocks       []string
 	unblockErr     error
+	deletedAll     []string
+	deleteAllErr   error
 }
 
 func (s *stubUserData) ListFolders(string) ([]domain.Folder, error) { return s.folders, s.listErr }
@@ -83,6 +85,28 @@ func (s *stubUserData) BlockUser(_ string, blockedUserId string) error {
 func (s *stubUserData) UnblockUser(_ string, blockedUserId string) error {
 	s.unblocks = append(s.unblocks, blockedUserId)
 	return s.unblockErr
+}
+
+func (s *stubUserData) DeleteAll(userId string) error {
+	s.deletedAll = append(s.deletedAll, userId)
+	return s.deleteAllErr
+}
+
+// stubDirectory stands in for Cognito: deleting the account itself.
+type stubDirectory struct {
+	deleted []string
+	err     error
+}
+
+func (s *stubDirectory) DeleteUser(userId string) error {
+	s.deleted = append(s.deleted, userId)
+	return s.err
+}
+
+// newTestHandler builds the account handler with the pieces a test does not
+// care about left as empty stubs.
+func newTestHandler(verifier TokenVerifier, library repositories.UserDataRepository, videos repositories.VideoRepository) *UserDataHandler {
+	return NewUserDataHandler(verifier, library, videos, &stubChat{}, &stubDirectory{})
 }
 
 type stubVideos struct {
@@ -131,7 +155,7 @@ func TestUserDataHandler_RejectsRequestsWithoutAValidToken(t *testing.T) {
 	library := &stubUserData{}
 	verifier := &stubVerifier{err: errors.New("expired")}
 
-	handler := NewUserDataHandler(verifier, library, &stubVideos{})
+	handler := newTestHandler(verifier, library, &stubVideos{})
 
 	for name, headers := range map[string]map[string]string{
 		"no header":    {},
@@ -153,7 +177,7 @@ func TestUserDataHandler_RejectsRequestsWithoutAValidToken(t *testing.T) {
 
 func TestUserDataHandler_ReturnsTheSignedInUser(t *testing.T) {
 
-	handler := NewUserDataHandler(signedIn(), &stubUserData{}, &stubVideos{})
+	handler := newTestHandler(signedIn(), &stubUserData{}, &stubVideos{})
 
 	response, err := handler.Handle(request("/me", "GET", authHeader(), "", nil))
 
@@ -168,7 +192,7 @@ func TestUserDataHandler_ReturnsTheSignedInUser(t *testing.T) {
 func TestUserDataHandler_ListsFolders(t *testing.T) {
 
 	library := &stubUserData{folders: []domain.Folder{{Id: "f1", Name: "Music", Videos: []domain.SavedVideo{}}}}
-	handler := NewUserDataHandler(signedIn(), library, &stubVideos{})
+	handler := newTestHandler(signedIn(), library, &stubVideos{})
 
 	response, err := handler.Handle(request("/me/folders", "GET", authHeader(), "", nil))
 
@@ -194,7 +218,7 @@ func TestUserDataHandler_DescribesSavedVideosSoTheLibraryCanDrawCards(t *testing
 		"video-a": {IdDB: "video-a", ThumbnailUrl: "https://cdn.example.com/a.jpg", Text: "A post"},
 	}}
 
-	handler := NewUserDataHandler(signedIn(), library, videos)
+	handler := newTestHandler(signedIn(), library, videos)
 
 	response, err := handler.Handle(request("/me/folders", "GET", authHeader(), "", nil))
 
@@ -208,7 +232,7 @@ func TestUserDataHandler_DescribesSavedVideosSoTheLibraryCanDrawCards(t *testing
 func TestUserDataHandler_CreatesAFolder(t *testing.T) {
 
 	library := &stubUserData{createdFolder: &domain.Folder{Id: "f9", Name: "Music", Videos: []domain.SavedVideo{}}}
-	handler := NewUserDataHandler(signedIn(), library, &stubVideos{})
+	handler := newTestHandler(signedIn(), library, &stubVideos{})
 
 	response, err := handler.Handle(request("/me/folders", "POST", authHeader(), `{"name":"  Music  "}`, nil))
 
@@ -219,7 +243,7 @@ func TestUserDataHandler_CreatesAFolder(t *testing.T) {
 
 func TestUserDataHandler_RejectsEmptyAndOverlongFolderNames(t *testing.T) {
 
-	handler := NewUserDataHandler(signedIn(), &stubUserData{}, &stubVideos{})
+	handler := newTestHandler(signedIn(), &stubUserData{}, &stubVideos{})
 
 	for name, body := range map[string]string{
 		"empty":     `{"name":"   "}`,
@@ -241,7 +265,7 @@ func TestUserDataHandler_RejectsEmptyAndOverlongFolderNames(t *testing.T) {
 func TestUserDataHandler_RenamesAndDeletesFolders(t *testing.T) {
 
 	library := &stubUserData{}
-	handler := NewUserDataHandler(signedIn(), library, &stubVideos{})
+	handler := newTestHandler(signedIn(), library, &stubVideos{})
 
 	renamed, err := handler.Handle(request("/me/folders/{folderId}", "PATCH", authHeader(),
 		`{"name":"Live sets"}`, map[string]string{"folderId": "f1"}))
@@ -259,7 +283,7 @@ func TestUserDataHandler_RenamesAndDeletesFolders(t *testing.T) {
 func TestUserDataHandler_MapsAMissingFolderTo404(t *testing.T) {
 
 	library := &stubUserData{deleteErr: repositories.ErrFolderNotFound}
-	handler := NewUserDataHandler(signedIn(), library, &stubVideos{})
+	handler := newTestHandler(signedIn(), library, &stubVideos{})
 
 	response, err := handler.Handle(request("/me/folders/{folderId}", "DELETE", authHeader(), "",
 		map[string]string{"folderId": "gone"}))
@@ -272,7 +296,7 @@ func TestUserDataHandler_SavesOnlyVideosThatExist(t *testing.T) {
 
 	videos := &stubVideos{}
 	library := &stubUserData{}
-	handler := NewUserDataHandler(signedIn(), library, videos)
+	handler := newTestHandler(signedIn(), library, videos)
 
 	// A link that never resolved cannot be saved.
 	missing, err := handler.Handle(request("/me/folders/{folderId}/videos", "POST", authHeader(),
@@ -299,7 +323,7 @@ func TestUserDataHandler_SavesOnlyVideosThatExist(t *testing.T) {
 func TestUserDataHandler_BlocksAndUnblocksUsers(t *testing.T) {
 
 	library := &stubUserData{blocks: []string{"user-2"}}
-	handler := NewUserDataHandler(signedIn(), library, &stubVideos{})
+	handler := newTestHandler(signedIn(), library, &stubVideos{})
 
 	listed, err := handler.Handle(request("/me/blocks", "GET", authHeader(), "", nil))
 	require.NoError(t, err)
@@ -324,12 +348,98 @@ func TestUserDataHandler_BlocksAndUnblocksUsers(t *testing.T) {
 
 func TestUserDataHandler_UnknownRouteIs404(t *testing.T) {
 
-	handler := NewUserDataHandler(signedIn(), &stubUserData{}, &stubVideos{})
+	handler := newTestHandler(signedIn(), &stubUserData{}, &stubVideos{})
 
 	response, err := handler.Handle(request("/me/something-else", "GET", authHeader(), "", nil))
 
 	require.NoError(t, err)
 	assert.Equal(t, 404, response.StatusCode)
+}
+
+func TestUserDataHandler_DeletesTheAccountAndEverythingInIt(t *testing.T) {
+
+	library := &stubUserData{}
+	chat := &stubChat{}
+	directory := &stubDirectory{}
+
+	handler := NewUserDataHandler(signedIn(), library, &stubVideos{}, chat, directory)
+
+	response, err := handler.Handle(request("/me", "DELETE", authHeader(), "", nil))
+
+	require.NoError(t, err)
+	assert.Equal(t, 204, response.StatusCode)
+
+	assert.Equal(t, []string{"user-1"}, library.deletedAll)
+	assert.Equal(t, []string{"user-1"}, chat.deletedAll)
+	// The account itself goes last, once nothing points at it any more.
+	assert.Equal(t, []string{"user-1"}, directory.deleted)
+}
+
+func TestUserDataHandler_DeletingAnAccountNeedsALogin(t *testing.T) {
+
+	library := &stubUserData{}
+	directory := &stubDirectory{}
+
+	handler := NewUserDataHandler(&stubVerifier{err: errors.New("expired")}, library, &stubVideos{}, &stubChat{}, directory)
+
+	response, err := handler.Handle(request("/me", "DELETE", map[string]string{"Authorization": "Bearer nonsense"}, "", nil))
+
+	require.NoError(t, err)
+	assert.Equal(t, 401, response.StatusCode)
+	assert.Empty(t, library.deletedAll)
+	assert.Empty(t, directory.deleted)
+}
+
+func TestUserDataHandler_KeepsTheAccountWhenItsDataCannotBeDeleted(t *testing.T) {
+
+	directory := &stubDirectory{}
+	handler := NewUserDataHandler(
+		signedIn(),
+		&stubUserData{deleteAllErr: errors.New("dynamodb unavailable")},
+		&stubVideos{},
+		&stubChat{},
+		directory,
+	)
+
+	response, err := handler.Handle(request("/me", "DELETE", authHeader(), "", nil))
+
+	require.NoError(t, err)
+	assert.Equal(t, 500, response.StatusCode)
+	// Nothing was deleted, so the user can try again while still signed in.
+	assert.Empty(t, directory.deleted)
+	assert.Contains(t, response.Body, "could not delete your account")
+}
+
+func TestUserDataHandler_KeepsTheAccountWhenChatDataCannotBeDeleted(t *testing.T) {
+
+	directory := &stubDirectory{}
+	handler := NewUserDataHandler(
+		signedIn(),
+		&stubUserData{},
+		&stubVideos{},
+		&stubChat{deleteAllErr: errors.New("dynamodb unavailable")},
+		directory,
+	)
+
+	response, err := handler.Handle(request("/me", "DELETE", authHeader(), "", nil))
+
+	require.NoError(t, err)
+	assert.Equal(t, 500, response.StatusCode)
+	assert.Empty(t, directory.deleted)
+}
+
+func TestUserDataHandler_SaysWhatIsLeftWhenOnlyTheAccountRemains(t *testing.T) {
+
+	directory := &stubDirectory{err: errors.New("cognito unavailable")}
+	handler := NewUserDataHandler(signedIn(), &stubUserData{}, &stubVideos{}, &stubChat{}, directory)
+
+	response, err := handler.Handle(request("/me", "DELETE", authHeader(), "", nil))
+
+	require.NoError(t, err)
+	assert.Equal(t, 500, response.StatusCode)
+	// The rows are already gone and the retry is safe, so the message says so
+	// rather than claiming nothing happened.
+	assert.Contains(t, response.Body, "the account itself could not be removed")
 }
 
 func TestValidFolderName(t *testing.T) {

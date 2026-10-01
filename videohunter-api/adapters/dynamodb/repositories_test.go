@@ -66,7 +66,17 @@ func (f *fakeDB) Query(input *dynamodb.QueryInput) (*dynamodb.QueryOutput, error
 	f.mu.Lock()
 	defer f.mu.Unlock()
 
+	// The base table is partitioned by pk; the only index is keyed on the
+	// userId attribute, and the projection always carries the table keys, so
+	// a delete can be built from an index query.
+	partitionAttribute := "pk"
 	partition := stringValue(input.ExpressionAttributeValues[":pk"])
+
+	if input.IndexName != nil {
+		partitionAttribute = "userId"
+		partition = stringValue(input.ExpressionAttributeValues[":userId"])
+	}
+
 	prefix := ""
 
 	if value, ok := input.ExpressionAttributeValues[":prefix"]; ok {
@@ -75,12 +85,11 @@ func (f *fakeDB) Query(input *dynamodb.QueryInput) (*dynamodb.QueryOutput, error
 
 	keys := []string{}
 
-	for key := range f.items {
-		parts := strings.SplitN(key, "|", 2)
-		if parts[0] != partition {
+	for key, item := range f.items {
+		if stringValue(item[partitionAttribute]) != partition {
 			continue
 		}
-		if prefix != "" && !strings.HasPrefix(parts[1], prefix) {
+		if prefix != "" && !strings.HasPrefix(stringValue(item["sk"]), prefix) {
 			continue
 		}
 		keys = append(keys, key)
@@ -259,9 +268,9 @@ func TestUserDataRepository_GroupsSavedVideosIntoTheirFolders(t *testing.T) {
 	require.NoError(t, err)
 
 	require.Len(t, folders, 2)
-	assert.Equal(t, "Music", folders[0].Name)
-	assert.Equal(t, []string{"video-a"}, videoIds(folders[0]))
-	assert.Equal(t, []string{"video-c"}, videoIds(folders[1]))
+	assert.Equal(t, []string{"Music", "Sport"}, folderNames(folders))
+	assert.Equal(t, []string{"video-a"}, videoIds(folderNamed(t, folders, "Music")))
+	assert.Equal(t, []string{"video-c"}, videoIds(folderNamed(t, folders, "Sport")))
 
 	// The other user's folder is untouched and invisible.
 	other, err := library.ListFolders("user-2")
@@ -464,6 +473,85 @@ func TestChatDataRepository_ReportStoresARowForReview(t *testing.T) {
 	assert.Equal(t, 2, db.count())
 }
 
+func TestUserDataRepository_DeleteAllRemovesOnlyThatUser(t *testing.T) {
+
+	db := newFakeDB()
+	library := NewUserDataRepository(db, "user_data")
+
+	mine, err := library.CreateFolder("user-1", "Mine")
+	require.NoError(t, err)
+	require.NoError(t, library.SaveVideoToFolder("user-1", mine.Id, "video-a"))
+	require.NoError(t, library.BlockUser("user-1", "user-9"))
+
+	theirs, err := library.CreateFolder("user-2", "Theirs")
+	require.NoError(t, err)
+	require.NoError(t, library.SaveVideoToFolder("user-2", theirs.Id, "video-b"))
+
+	require.NoError(t, library.DeleteAll("user-1"))
+
+	// One folder and one saved video belong to the other user and stay.
+	assert.Equal(t, 2, db.count())
+
+	folders, err := library.ListFolders("user-1")
+	require.NoError(t, err)
+	assert.Empty(t, folders)
+
+	blocked, err := library.ListBlockedUsers("user-1")
+	require.NoError(t, err)
+	assert.Empty(t, blocked)
+
+	// Running it again is what makes the last step of a failed deletion safe.
+	require.NoError(t, library.DeleteAll("user-1"))
+	assert.Equal(t, 2, db.count())
+}
+
+func TestChatDataRepository_DeleteAllRemovesWhatTheUserWroteEverywhere(t *testing.T) {
+
+	db := newFakeDB()
+	chat := NewChatDataRepository(db, "chat_data")
+
+	// The same user wrote in two rooms, reported a message, had a socket open
+	// and spent some rate limit; another user did some of the same.
+	require.NoError(t, chat.SaveMessage("video-1", message("0000000000001#a", "user-1", "Victor", "mine")))
+	require.NoError(t, chat.SaveMessage("video-2", message("0000000000002#b", "user-1", "Victor", "also mine")))
+	require.NoError(t, chat.SaveMessage("video-1", message("0000000000003#c", "user-2", "Ana", "theirs")))
+	require.NoError(t, chat.ReportMessage("video-1", "0000000000003#c", "user-1"))
+	require.NoError(t, chat.SaveConnection("video-1", connection("conn-1", "user-1", "Victor")))
+	require.NoError(t, chat.SaveConnection("video-1", connection("conn-2", "user-2", "Ana")))
+
+	allowed, err := chat.AllowMessage("user-1", 10)
+	require.NoError(t, err)
+	require.True(t, allowed)
+	allowed, err = chat.AllowMessage("user-2", 10)
+	require.NoError(t, err)
+	require.True(t, allowed)
+
+	require.NoError(t, chat.DeleteAll("user-1"))
+
+	// The other user's message, socket and rate limit are untouched, and the
+	// report the deleted user filed is gone with them.
+	assert.Equal(t, 3, db.count())
+
+	messages, err := chat.RecentMessages("video-1", 50)
+	require.NoError(t, err)
+	require.Len(t, messages, 1)
+	assert.Equal(t, "theirs", messages[0].Text)
+
+	room, err := chat.RoomConnections("video-1")
+	require.NoError(t, err)
+	require.Len(t, room, 1)
+	assert.Equal(t, "conn-2", room[0].ConnectionId)
+
+	// The other user can still write: their rate limit row survived.
+	allowed, err = chat.AllowMessage("user-2", 10)
+	require.NoError(t, err)
+	assert.True(t, allowed)
+
+	// And the deleted user's rate limit was cleared, so the delete can run again.
+	require.NoError(t, chat.DeleteAll("user-1"))
+	assert.Equal(t, 3, db.count())
+}
+
 func connection(connectionId, userId, author string) domain.ChatConnection {
 	return domain.ChatConnection{ConnectionId: connectionId, UserId: userId, Author: author}
 }
@@ -484,6 +572,28 @@ func videoIds(folder domain.Folder) []string {
 		ids = append(ids, video.VideoId)
 	}
 	return ids
+}
+
+func folderNames(folders []domain.Folder) []string {
+	names := []string{}
+	for _, folder := range folders {
+		names = append(names, folder.Name)
+	}
+	return names
+}
+
+func folderNamed(t *testing.T, folders []domain.Folder, name string) domain.Folder {
+	t.Helper()
+
+	for _, folder := range folders {
+		if folder.Name == name {
+			return folder
+		}
+	}
+
+	t.Fatalf("no folder named %q in %v", name, folderNames(folders))
+
+	return domain.Folder{}
 }
 
 func messageTexts(messages []domain.ChatMessage) []string {

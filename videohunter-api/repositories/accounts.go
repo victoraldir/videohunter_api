@@ -23,6 +23,10 @@ type UserDataRepository interface {
 	ListBlockedUsers(userId string) ([]string, error)
 	BlockUser(userId, blockedUserId string) error
 	UnblockUser(userId, blockedUserId string) error
+
+	// DeleteAll removes every row the user owns. It backs the "delete my
+	// account" request, so it has to be exhaustive rather than convenient.
+	DeleteAll(userId string) error
 }
 
 // ChatRepository stores the short lived chat state of a video page: the open
@@ -37,6 +41,11 @@ type ChatRepository interface {
 	RecentMessages(videoId string, limit int64) ([]domain.ChatMessage, error)
 	DeleteMessage(videoId, messageId, userId string) (bool, error)
 	ReportMessage(videoId, messageId, userId string) error
+
+	// DeleteAll removes everything the user left behind in chat: their
+	// messages, their connections and the messages they reported, wherever
+	// those live. It backs the "delete my account" request.
+	DeleteAll(userId string) error
 
 	// AllowMessage reports whether the user is still under the message rate
 	// limit, and counts the attempt when they are.

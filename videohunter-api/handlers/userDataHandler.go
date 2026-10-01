@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/aws/aws-lambda-go/events"
+	"github.com/victoraldir/myvideohunterapi/adapters/cognito"
 	"github.com/victoraldir/myvideohunterapi/auth"
 	"github.com/victoraldir/myvideohunterapi/domain"
 	"github.com/victoraldir/myvideohunterapi/repositories"
@@ -27,16 +28,26 @@ const maxDescribedVideos = 60
 // Every route here is additive. Nothing in this handler can affect a download
 // or a video page, which are served by their own functions.
 type UserDataHandler struct {
-	Verifier TokenVerifier
-	Library  repositories.UserDataRepository
-	Videos   repositories.VideoRepository
+	Verifier  TokenVerifier
+	Library   repositories.UserDataRepository
+	Videos    repositories.VideoRepository
+	Chat      repositories.ChatRepository
+	Directory cognito.UserDirectory
 }
 
-func NewUserDataHandler(verifier TokenVerifier, library repositories.UserDataRepository, videos repositories.VideoRepository) *UserDataHandler {
+func NewUserDataHandler(
+	verifier TokenVerifier,
+	library repositories.UserDataRepository,
+	videos repositories.VideoRepository,
+	chat repositories.ChatRepository,
+	directory cognito.UserDirectory,
+) *UserDataHandler {
 	return &UserDataHandler{
-		Verifier: verifier,
-		Library:  library,
-		Videos:   videos,
+		Verifier:  verifier,
+		Library:   library,
+		Videos:    videos,
+		Chat:      chat,
+		Directory: directory,
 	}
 }
 
@@ -50,6 +61,9 @@ func (h *UserDataHandler) Handle(request events.APIGatewayProxyRequest) (events.
 
 	switch request.Resource {
 	case "/me":
+		if request.HTTPMethod == http.MethodDelete {
+			return h.deleteAccount(claims), nil
+		}
 		return h.me(claims), nil
 
 	case "/me/folders":
@@ -90,6 +104,37 @@ type meResponse struct {
 
 func (h *UserDataHandler) me(claims *auth.Claims) events.APIGatewayProxyResponse {
 	return jsonValue(http.StatusOK, meResponse{UserId: claims.Sub, Name: claims.DisplayName()})
+}
+
+// deleteAccount removes everything the user owns and then the account itself.
+//
+// The order matters. The rows go first: if that fails the account still exists
+// and the user can try again, whereas deleting the account first would strand
+// their data with nobody left who can authenticate a retry. Deleting last is
+// also what makes a retry safe, because every delete here is idempotent.
+func (h *UserDataHandler) deleteAccount(claims *auth.Claims) events.APIGatewayProxyResponse {
+
+	if err := h.Library.DeleteAll(claims.Sub); err != nil {
+		slog.Error("Could not delete a library", "error", err)
+		return jsonResponse(http.StatusInternalServerError, "We could not delete your account. Please try again.")
+	}
+
+	if err := h.Chat.DeleteAll(claims.Sub); err != nil {
+		slog.Error("Could not delete chat data", "error", err)
+		return jsonResponse(http.StatusInternalServerError, "We could not delete your account. Please try again.")
+	}
+
+	if err := h.Directory.DeleteUser(claims.Sub); err != nil {
+		slog.Error("Could not delete the account itself", "error", err)
+		// Saying exactly what is left is the honest thing here: the retry will
+		// work, because the deletes above have already run.
+		return jsonResponse(http.StatusInternalServerError,
+			"Your saved videos and messages have been deleted, but the account itself could not be removed. Please try again.")
+	}
+
+	slog.Info("Deleted an account", "userId", claims.Sub)
+
+	return noContentResponse()
 }
 
 func (h *UserDataHandler) listFolders(claims *auth.Claims) events.APIGatewayProxyResponse {

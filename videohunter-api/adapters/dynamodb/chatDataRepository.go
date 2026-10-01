@@ -44,6 +44,11 @@ const (
 	connectionTTL   = 2 * time.Hour
 	messageTTL      = 30 * 24 * time.Hour
 	reportTTL       = 90 * 24 * time.Hour
+
+	// byUserIndex finds everything one user left in any room. It is what makes
+	// "delete my account" possible: a room is keyed by video, so without it a
+	// user's messages could not be found across rooms.
+	byUserIndex = "byUser"
 )
 
 type chatDataRepository struct {
@@ -261,13 +266,127 @@ func (d *chatDataRepository) ReportMessage(videoId, messageId, userId string) er
 			"pk":        {S: aws.String(roomPartition(videoId))},
 			"sk":        {S: aws.String(reportKey + messageId + "#" + userId)},
 			"messageId": {S: aws.String(messageId)},
-			"reporter":  {S: aws.String(userId)},
+			// Also carried as userId so the byUser index finds the report when
+			// the reporter deletes their account.
+			"userId":    {S: aws.String(userId)},
 			"createdAt": {S: aws.String(time.Now().UTC().Format(time.RFC3339))},
 			"expiresAt": {N: aws.String(fmt.Sprint(time.Now().Add(reportTTL).Unix()))},
 		},
 	})
 
 	return err
+}
+
+// DeleteAll removes what the user wrote in chat, wherever it is: their
+// messages, their connections and the messages they reported, found through
+// the byUser index, plus the rate limit rows under their own partition.
+func (d *chatDataRepository) DeleteAll(userId string) error {
+
+	keys, err := d.byUser(userId)
+	if err != nil {
+		return err
+	}
+
+	rateLimits, err := d.rateLimitRows(userId)
+	if err != nil {
+		return err
+	}
+
+	return deleteKeys(d.client, d.tableName, append(keys, rateLimits...))
+}
+
+func (d *chatDataRepository) byUser(userId string) ([]tableKey, error) {
+
+	input := &dynamodb.QueryInput{
+		TableName:              aws.String(d.tableName),
+		IndexName:              aws.String(byUserIndex),
+		KeyConditionExpression: aws.String("userId = :userId"),
+		ExpressionAttributeValues: map[string]*dynamodb.AttributeValue{
+			":userId": {S: aws.String(userId)},
+		},
+	}
+
+	return d.eachKey(input)
+}
+
+func (d *chatDataRepository) rateLimitRows(userId string) ([]tableKey, error) {
+
+	input := &dynamodb.QueryInput{
+		TableName:              aws.String(d.tableName),
+		KeyConditionExpression: aws.String("pk = :pk"),
+		ExpressionAttributeValues: map[string]*dynamodb.AttributeValue{
+			":pk": {S: aws.String(ratePartition(userId))},
+		},
+	}
+
+	return d.eachKey(input)
+}
+
+// eachKey runs a query to the end and returns the primary keys of every row.
+func (d *chatDataRepository) eachKey(input *dynamodb.QueryInput) ([]tableKey, error) {
+
+	keys := []tableKey{}
+
+	for {
+		output, err := d.client.Query(input)
+		if err != nil {
+			return nil, err
+		}
+
+		for _, item := range output.Items {
+			keys = append(keys, tableKey{pk: stringValue(item["pk"]), sk: stringValue(item["sk"])})
+		}
+
+		if output.LastEvaluatedKey == nil {
+			return keys, nil
+		}
+
+		input.ExclusiveStartKey = output.LastEvaluatedKey
+	}
+}
+
+// tableKey is the primary key of a row, which is all a delete needs.
+type tableKey struct {
+	pk string
+	sk string
+}
+
+type batchWriteClient interface {
+	BatchWriteItem(input *dynamodb.BatchWriteItemInput) (*dynamodb.BatchWriteItemOutput, error)
+}
+
+// deleteKeys removes rows 25 at a time, which is DynamoDB's batch write limit.
+func deleteKeys(client batchWriteClient, tableName string, keys []tableKey) error {
+
+	const batchSize = 25
+
+	for start := 0; start < len(keys); start += batchSize {
+		end := start + batchSize
+		if end > len(keys) {
+			end = len(keys)
+		}
+
+		requests := []*dynamodb.WriteRequest{}
+
+		for _, key := range keys[start:end] {
+			requests = append(requests, &dynamodb.WriteRequest{
+				DeleteRequest: &dynamodb.DeleteRequest{
+					Key: map[string]*dynamodb.AttributeValue{
+						"pk": {S: aws.String(key.pk)},
+						"sk": {S: aws.String(key.sk)},
+					},
+				},
+			})
+		}
+
+		if _, err := client.BatchWriteItem(&dynamodb.BatchWriteItemInput{
+			RequestItems: map[string][]*dynamodb.WriteRequest{tableName: requests},
+		}); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 func (d *chatDataRepository) AllowMessage(userId string, limit int64) (bool, error) {

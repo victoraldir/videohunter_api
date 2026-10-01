@@ -91,6 +91,8 @@ type stubChat struct {
 	savedConn    *domain.ChatConnection
 	savedVideoId string
 	saveConnErr  error
+	deletedAll   []string
+	deleteAllErr error
 }
 
 func (s *stubChat) SaveConnection(videoId string, connection domain.ChatConnection) error {
@@ -127,6 +129,11 @@ func (s *stubChat) ReportMessage(_ string, messageId, userId string) error {
 func (s *stubChat) AllowMessage(userId string, _ int64) (bool, error) {
 	s.rateChecked = append(s.rateChecked, userId)
 	return s.allow, s.allowErr
+}
+
+func (s *stubChat) DeleteAll(userId string) error {
+	s.deletedAll = append(s.deletedAll, userId)
+	return s.deleteAllErr
 }
 
 func websocketRequest(routeKey, body string, query map[string]string) events.APIGatewayWebsocketProxyRequest {
