@@ -7,7 +7,13 @@ MODULE_DIRS := videohunter-api videohunter-bsky videohunter-shared videohunter-t
 # Modules whose test suites do not need live external services.
 UNIT_TEST_MODULES := videohunter-bsky videohunter-telegram videohunter-twitter
 # Get token from env variable
-PARAMETERS_OVERRIDE := LogLevel=INFO
+#
+# EnableGoogleLogin has to be passed on every deploy, not just the one that
+# first creates it. It defaults to false, so a deploy that omits it would set
+# the parameter back to false, delete the Google identity provider and drop
+# Google from the app client's supported providers, silently breaking sign in
+# for everyone who uses it.
+PARAMETERS_OVERRIDE := LogLevel=INFO EnableGoogleLogin=true
 
 # To try different version of Go
 GO := go
