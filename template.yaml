@@ -246,6 +246,33 @@ Resources:
             Priority: 1
       AdminCreateUserConfig:
         AllowAdminCreateUserOnly: false
+      # Cognito's own sender is fixed at no-reply@verificationemail.com, which
+      # reads like phishing on a sign up. The pool sends through SES from the
+      # verified domain instead, so the mail a new user gets is from
+      # no-reply@myvideohunter.com.
+      #
+      # The domain identity itself is verified outside this stack: its DKIM
+      # records live in the DNS, and CloudFormation has no resource for the
+      # identity policy that lets Cognito use it. That policy is applied by
+      # hand (see AGENTS.md) and allows email.cognito-idp.amazonaws.com to
+      # send through this identity, but only for this pool.
+      EmailConfiguration:
+        EmailSendingAccount: DEVELOPER
+        SourceArn: !Sub arn:${AWS::Partition}:ses:${AWS::Region}:${AWS::AccountId}:identity/${DomainName}
+        From: !Sub no-reply@${DomainName}
+        # The verified identity carries this configuration set. Cognito
+        # refuses the configuration with an internal error while it is left
+        # out, which is how this was found.
+        ConfigurationSet: my-first-configuration-set
+      VerificationMessageTemplate:
+        # Kept as a code rather than a link: the hosted UI accepts the code,
+        # and a code survives being forwarded or opened on another device.
+        DefaultEmailOption: CONFIRM_WITH_CODE
+        EmailSubject: Your Video Hunter verification code
+        EmailMessage: |
+          Your Video Hunter verification code is {####}
+
+          Enter it on the sign in page to confirm your email address. If you did not try to create an account, you can ignore this message.
       Policies:
         PasswordPolicy:
           # Length only: the rest is friction for an optional account.
