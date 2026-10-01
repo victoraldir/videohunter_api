@@ -22,7 +22,10 @@ Globals:
         BOT_TOKEN: '{{resolve:ssm:/videohunter/telegram/bot/token:2}}'
         REDDIT_CLIENT_ID: !Ref RedditClientId
         REDDIT_CLIENT_SECRET: !Ref RedditClientSecret
-        DONWLOAD_HLS_URL: "https://downloadhlsurlgoeshere.com"
+        # The video page handler refuses to start without this variable. The
+        # name was mistyped here, so the value it needs was never set; the
+        # spelling is corrected rather than left as a second, unread variable.
+        DOWNLOAD_HLS_URL: "https://downloadhlsurlgoeshere.com"
         BSKY_USERNAME: '{{resolve:ssm:/videohunter/bsky/username:1}}'
         BSKY_PASSWORD: '{{resolve:ssm:/videohunter/bsky/password:2}}' # It sucks, but it still doesn't support ssm-secure ref apparently. Check later
         GETXAPI_KEY: '{{resolve:ssm:/videohunter/getxapi/key:1}}'
@@ -33,8 +36,11 @@ Globals:
   Api:
     TracingEnabled: true
     Cors:
-      AllowMethods: '''GET,POST,OPTIONS'''
-      AllowHeaders: '''content-type'''
+      # PATCH, DELETE and the authorization header are here for the account
+      # endpoints. The site calls them same origin, so this only matters for a
+      # cross origin client such as the local dev server.
+      AllowMethods: '''GET,POST,PATCH,DELETE,OPTIONS'''
+      AllowHeaders: '''content-type,authorization'''
       AllowOrigin: '''*'''
       AllowCredentials: '''*'''
 
@@ -86,6 +92,35 @@ Parameters:
     Type: String
     Default: dummy
     Description: Reddit client secret
+  UserDataTableName:
+    Type: String
+    Default: user_data
+    Description: Table that holds each signed in user's folders and saved videos
+  ChatDataTableName:
+    Type: String
+    Default: chat_data
+    Description: Table that holds the chat rooms, their messages and connections
+  CognitoDomainPrefix:
+    Type: String
+    Default: videohunter-auth
+    Description: |
+      Globally unique prefix for the Cognito hosted sign in page. The real URL
+      is https://<prefix>.auth.<region>.amazoncognito.com and the front end
+      discovers it from /prod/config.
+  EnableGoogleLogin:
+    Type: String
+    Default: 'false'
+    AllowedValues:
+      - 'true'
+      - 'false'
+    Description: |
+      Set to true to offer Google sign in. Requires the SSM parameters
+      /videohunter/google/client_id and /videohunter/google/client_secret.
+
+Conditions:
+  # Google sign in is opt-in so that a deploy never depends on credentials the
+  # owner has not created yet.
+  CreateGoogleProvider: !Equals [!Ref EnableGoogleLogin, 'true']
 
 Resources:
   GatewayAPI:
@@ -186,6 +221,286 @@ Resources:
             Path: /telegram-webhook # TODO Can we whitelist the IP address here?
             Method: POST
 
+  # ---------------------------------------------------------------------------
+  # Accounts, saved video folders and chat.
+  #
+  # Everything below is additive. The download path and the video page path do
+  # not reference any of it, so nothing here can break them: if the login, the
+  # folders or the chat fail, the downloader keeps working exactly as before.
+  # ---------------------------------------------------------------------------
+
+  UserPool:
+    Type: AWS::Cognito::UserPool
+    Properties:
+      UserPoolName: !Sub ${AWS::StackName}-users
+      # People sign in with their email address. The Cognito "sub" stays the
+      # stable identifier, and it is the only one stored in DynamoDB.
+      UsernameAttributes:
+        - email
+      AutoVerifiedAttributes:
+        - email
+      MfaConfiguration: 'OFF'
+      AccountRecoverySetting:
+        RecoveryMechanisms:
+          - Name: verified_email
+            Priority: 1
+      AdminCreateUserConfig:
+        AllowAdminCreateUserOnly: false
+      Policies:
+        PasswordPolicy:
+          # Length only: the rest is friction for an optional account.
+          MinimumLength: 8
+          RequireLowercase: false
+          RequireUppercase: false
+          RequireNumbers: false
+          RequireSymbols: false
+
+  UserPoolClient:
+    Type: AWS::Cognito::UserPoolClient
+    Properties:
+      ClientName: !Sub ${AWS::StackName}-website
+      UserPoolId: !Ref UserPool
+      # A browser cannot keep a secret, so this is a public client: the login
+      # flow is authorization code with PKCE and no client secret.
+      GenerateSecret: false
+      AllowedOAuthFlowsUserPoolClient: true
+      AllowedOAuthFlows:
+        - code
+      AllowedOAuthScopes:
+        - openid
+        - email
+        - profile
+      SupportedIdentityProviders: !If [CreateGoogleProvider, [COGNITO, Google], [COGNITO]]
+      CallbackURLs:
+        - !Sub https://www.${DomainName}/auth/callback.html
+        - http://localhost:5173/auth/callback.html
+      LogoutURLs:
+        - !Sub https://www.${DomainName}/
+        - http://localhost:5173/
+      ExplicitAuthFlows:
+        - ALLOW_USER_SRP_AUTH
+        - ALLOW_REFRESH_TOKEN_AUTH
+      PreventUserExistenceErrors: ENABLED
+      EnableTokenRevocation: true
+      RefreshTokenValidity: 30
+
+  UserPoolDomain:
+    Type: AWS::Cognito::UserPoolDomain
+    Properties:
+      # The prefix has to be globally unique. If a deploy says it is taken,
+      # change CognitoDomainPrefix: the front end reads the resulting URL from
+      # /prod/config, so nothing else has to change.
+      Domain: !Ref CognitoDomainPrefix
+      UserPoolId: !Ref UserPool
+
+  # Google sign in, off by default so that a deploy never depends on
+  # credentials the owner has not created yet. To turn it on:
+  #   1. create a Google OAuth client with the redirect URI
+  #      https://<CognitoDomainPrefix>.auth.<region>.amazoncognito.com/oauth2/idpresponse
+  #   2. put the id and secret in SSM: /videohunter/google/client_id and
+  #      /videohunter/google/client_secret
+  #   3. deploy with EnableGoogleLogin=true (add it to PARAMETERS_OVERRIDE in
+  #      the Makefile so make deploy keeps passing it).
+  # The SSM values are only read while the provider is enabled.
+  GoogleIdentityProvider:
+    Type: AWS::Cognito::UserPoolIdentityProvider
+    Condition: CreateGoogleProvider
+    Properties:
+      UserPoolId: !Ref UserPool
+      ProviderName: Google
+      ProviderType: Google
+      AttributeMapping:
+        email: email
+        name: name
+      ProviderDetails:
+        client_id: '{{resolve:ssm:/videohunter/google/client_id:1}}'
+        client_secret: '{{resolve:ssm:/videohunter/google/client_secret:1}}'
+        authorize_scopes: 'profile email openid'
+
+  # The folders and saved videos of a signed in user, and the chat block list.
+  UserDataFunction:
+    Type: AWS::Serverless::Function
+    Metadata:
+      BuildMethod: go1.x
+    Properties:
+      CodeUri: videohunter-api/functions/user-data
+      Environment:
+        Variables:
+          USER_DATA_TABLE: !Ref UserDataTableName
+          COGNITO_USER_POOL_ID: !Ref UserPool
+          COGNITO_CLIENT_ID: !Ref UserPoolClient
+          COGNITO_REGION: !Ref Region
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref UserDataTable
+        # Saving a video checks that its id was resolved before storing it.
+        - DynamoDBReadPolicy:
+            TableName: !Ref VideoTable
+      Events:
+        Me:
+          Type: Api
+          Properties:
+            RestApiId: !Ref GatewayAPI
+            Path: /me
+            Method: GET
+        ListFolders:
+          Type: Api
+          Properties:
+            RestApiId: !Ref GatewayAPI
+            Path: /me/folders
+            Method: GET
+        CreateFolder:
+          Type: Api
+          Properties:
+            RestApiId: !Ref GatewayAPI
+            Path: /me/folders
+            Method: POST
+        RenameFolder:
+          Type: Api
+          Properties:
+            RestApiId: !Ref GatewayAPI
+            Path: /me/folders/{folderId}
+            Method: PATCH
+        DeleteFolder:
+          Type: Api
+          Properties:
+            RestApiId: !Ref GatewayAPI
+            Path: /me/folders/{folderId}
+            Method: DELETE
+        SaveVideo:
+          Type: Api
+          Properties:
+            RestApiId: !Ref GatewayAPI
+            Path: /me/folders/{folderId}/videos
+            Method: POST
+        DeleteVideo:
+          Type: Api
+          Properties:
+            RestApiId: !Ref GatewayAPI
+            Path: /me/folders/{folderId}/videos/{videoId}
+            Method: DELETE
+        ListBlocks:
+          Type: Api
+          Properties:
+            RestApiId: !Ref GatewayAPI
+            Path: /me/blocks
+            Method: GET
+        BlockUser:
+          Type: Api
+          Properties:
+            RestApiId: !Ref GatewayAPI
+            Path: /me/blocks
+            Method: POST
+        UnblockUser:
+          Type: Api
+          Properties:
+            RestApiId: !Ref GatewayAPI
+            Path: /me/blocks/{blockedUserId}
+            Method: DELETE
+
+  # Public browser configuration: where the Cognito login lives and the chat
+  # websocket endpoint. Nothing secret, and it keeps the static site free of
+  # build time configuration that could drift from the stack.
+  ConfigFunction:
+    Type: AWS::Serverless::Function
+    Metadata:
+      BuildMethod: go1.x
+    Properties:
+      CodeUri: videohunter-api/functions/config
+      Environment:
+        Variables:
+          COGNITO_DOMAIN: !Sub ${CognitoDomainPrefix}.auth.${AWS::Region}.amazoncognito.com
+          COGNITO_CLIENT_ID: !Ref UserPoolClient
+          CHAT_WS_ENDPOINT: !Sub wss://${ChatWebSocketApi}.execute-api.${AWS::Region}.amazonaws.com/${Environment}
+      Events:
+        Config:
+          Type: Api
+          Properties:
+            RestApiId: !Ref GatewayAPI
+            Path: /config
+            Method: GET
+
+  # The chat room attached to a video page. It is its own websocket API, so the
+  # REST API that serves the downloads is not touched at all.
+  ChatFunction:
+    Type: AWS::Serverless::Function
+    Metadata:
+      BuildMethod: go1.x
+    Properties:
+      CodeUri: videohunter-api/functions/chat
+      Environment:
+        Variables:
+          CHAT_DATA_TABLE: !Ref ChatDataTableName
+          COGNITO_USER_POOL_ID: !Ref UserPool
+          COGNITO_CLIENT_ID: !Ref UserPoolClient
+          COGNITO_REGION: !Ref Region
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref ChatDataTable
+        # Needed to push a message to the other sockets in the room.
+        - Statement:
+            - Effect: Allow
+              Action: execute-api:ManageConnections
+              Resource: !Sub arn:${AWS::Partition}:execute-api:${AWS::Region}:${AWS::AccountId}:${ChatWebSocketApi}/${Environment}/POST/@connections/*
+
+  ChatWebSocketApi:
+    Type: AWS::ApiGatewayV2::Api
+    Properties:
+      Name: !Sub ${AWS::StackName}-chat
+      Description: Members only chat rooms attached to video pages
+      ProtocolType: WEBSOCKET
+      RouteSelectionExpression: $request.body.action
+
+  ChatWebSocketIntegration:
+    Type: AWS::ApiGatewayV2::Integration
+    Properties:
+      ApiId: !Ref ChatWebSocketApi
+      IntegrationType: AWS_PROXY
+      IntegrationMethod: POST
+      IntegrationUri: !Sub arn:${AWS::Partition}:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${ChatFunction.Arn}/invocations
+
+  # Only $connect, $disconnect and $default are routes: the room actions
+  # (recent, send, delete, report) arrive as the body of $default messages and
+  # are dispatched by the handler.
+  ChatConnectRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref ChatWebSocketApi
+      RouteKey: $connect
+      AuthorizationType: NONE
+      Target: !Sub integrations/${ChatWebSocketIntegration}
+
+  ChatDisconnectRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref ChatWebSocketApi
+      RouteKey: $disconnect
+      AuthorizationType: NONE
+      Target: !Sub integrations/${ChatWebSocketIntegration}
+
+  ChatDefaultRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref ChatWebSocketApi
+      RouteKey: $default
+      AuthorizationType: NONE
+      Target: !Sub integrations/${ChatWebSocketIntegration}
+
+  ChatWebSocketStage:
+    Type: AWS::ApiGatewayV2::Stage
+    Properties:
+      ApiId: !Ref ChatWebSocketApi
+      StageName: !Ref Environment
+      AutoDeploy: true
+
+  ChatFunctionInvokePermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref ChatFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub arn:${AWS::Partition}:execute-api:${AWS::Region}:${AWS::AccountId}:${ChatWebSocketApi}/*
+
   VideoTable:
     Type: AWS::Serverless::SimpleTable
     Properties:
@@ -207,6 +522,59 @@ Resources:
         ReadCapacityUnits: 1
         WriteCapacityUnits: 1
       TableName: settings
+
+  # A signed in user's library. Every row is keyed by the Cognito subject:
+  #
+  #   pk = <sub>   sk = FOLDER#<id>                   the folder
+  #   pk = <sub>   sk = FOLDER#<id>#VIDEO#<video id>  a saved video
+  #   pk = <sub>   sk = BLOCK#<blocked user id>       a chat block
+  #
+  # On demand billing: the traffic is far too low and too spiky for a
+  # provisioned capacity to make sense.
+  UserDataTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Ref UserDataTableName
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: pk
+          AttributeType: S
+        - AttributeName: sk
+          AttributeType: S
+      KeySchema:
+        - AttributeName: pk
+          KeyType: HASH
+        - AttributeName: sk
+          KeyType: RANGE
+
+  # Everything the chat needs: open connections, messages, reports and the per
+  # user rate limit.
+  #
+  #   pk = ROOM#<video id>   sk = CONN#<connection id>           a socket
+  #   pk = ROOM#<video id>   sk = MSG#<time>#<id>                a message
+  #   pk = ROOM#<video id>   sk = REPORT#<msg id>#<user id>      a report
+  #   pk = USER#<user id>    sk = RATELIMIT#<window>             rate limit
+  #
+  # expiresAt is a TTL attribute, so DynamoDB deletes old connections and
+  # messages on its own instead of a cleanup job doing it.
+  ChatDataTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Ref ChatDataTableName
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: pk
+          AttributeType: S
+        - AttributeName: sk
+          AttributeType: S
+      KeySchema:
+        - AttributeName: pk
+          KeyType: HASH
+        - AttributeName: sk
+          KeyType: RANGE
+      TimeToLiveSpecification:
+        AttributeName: expiresAt
+        Enabled: true
 
   HostedZone:
     Type: AWS::Route53::HostedZone
@@ -525,3 +893,15 @@ Outputs:
   BucketWebsite:
     Description: S3 bucket for Video Hunter website
     Value: !GetAtt WebsiteBucket.WebsiteURL
+  UserPoolId:
+    Description: Cognito user pool that signs the account tokens
+    Value: !Ref UserPool
+  UserPoolClientId:
+    Description: Cognito app client the website logs in with
+    Value: !Ref UserPoolClient
+  CognitoHostedUI:
+    Description: Hosted sign in hostname, also published by /prod/config
+    Value: !Sub ${CognitoDomainPrefix}.auth.${AWS::Region}.amazoncognito.com
+  ChatWebSocketUrl:
+    Description: Websocket URL of the chat rooms, also published by /prod/config
+    Value: !Sub wss://${ChatWebSocketApi}.execute-api.${AWS::Region}.amazonaws.com/${Environment}
