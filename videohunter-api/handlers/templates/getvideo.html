@@ -221,9 +221,13 @@
         <p>Looking for more {{ .Video.Platform }} videos? Use the <a href="{{ .Video.PlatformPageURL }}">{{ .Video.Platform }} video downloader</a>.</p>
     </section>
 
-    {{/* Members only chat room for this video. It is filled in by the script
-         below; without JavaScript the page is exactly what it was before. */}}
-    <section id="vh-chat" class="container py-4"></section>
+    {{/* Mount point for the chat. The script below draws it as a panel pinned to
+         the corner rather than a block in the page, so this stays an empty,
+         unstyled hook: everything inside it is fixed positioned, and leaving it
+         in the flow would only add dead space above the footer. Anyone can read
+         a room; only a signed in visitor can post. Without JavaScript the page
+         is exactly what it was before. */}}
+    <section id="vh-chat"></section>
 
     <!-- Loading Spinner -->
     <div id="loadingSpinner" class="loading-spinner">
