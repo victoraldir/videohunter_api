@@ -284,6 +284,13 @@ Resources:
 
   UserPoolClient:
     Type: AWS::Cognito::UserPoolClient
+    # The client lists Google among its supported providers, and CloudFormation
+    # creates the two in parallel. The client then loses the race and fails with
+    # "The provider Google does not exist for User Pool <id>", which rolls the
+    # whole stack update back. This forces the provider to exist first. The
+    # dependency is ignored when CreateGoogleProvider is false, because the
+    # referenced resource is not created at all.
+    DependsOn: GoogleIdentityProvider
     Properties:
       ClientName: !Sub ${AWS::StackName}-website
       UserPoolId: !Ref UserPool
@@ -415,6 +422,15 @@ Resources:
         name: name
       ProviderDetails:
         client_id: '{{resolve:ssm:/videohunter/google/client_id:1}}'
+        # This must be a plain String parameter read with the ssm: prefix.
+        # CloudFormation rejects both alternatives: a SecureString fails with
+        # "Non-secure ssm prefix was used for secure parameter", and
+        # ssm-secure: fails with "SSM Secure reference is not supported in
+        # [AWS::Cognito::UserPoolIdentityProvider/Properties/ProviderDetails/
+        # client_secret]" because ProviderDetails is a map. Parameter Store
+        # still encrypts String parameters at rest with the AWS managed key;
+        # reading one just is not gated behind kms:Decrypt, so the only control
+        # is ssm:GetParameter.
         client_secret: '{{resolve:ssm:/videohunter/google/client_secret:1}}'
         authorize_scopes: 'profile email openid'
 
