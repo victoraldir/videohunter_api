@@ -41,6 +41,10 @@ type userDataRepository struct {
 }
 
 func NewUserDataRepository(client UserDataDBClient, tableName string) repositories.UserDataRepository {
+	if tableName == "" {
+		slog.Error("USER_DATA_TABLE is not set: the library and account deletion will fail")
+	}
+
 	return &userDataRepository{client: client, tableName: tableName}
 }
 

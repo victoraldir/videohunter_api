@@ -327,6 +327,9 @@ Resources:
       Environment:
         Variables:
           USER_DATA_TABLE: !Ref UserDataTableName
+          # Deletion also clears this user's chat data, so this function needs
+          # the chat table as well as its own.
+          CHAT_DATA_TABLE: !Ref ChatDataTableName
           COGNITO_USER_POOL_ID: !Ref UserPool
           COGNITO_CLIENT_ID: !Ref UserPoolClient
           COGNITO_REGION: !Ref Region
@@ -716,6 +719,46 @@ Resources:
               - HEAD
             Compress: true
             CachePolicyId: a5d1ceca-4d36-43b9-89a8-524f07956fce # CachePolicyUrlQuery (custom, created outside this stack)
+            OriginRequestPolicyId: b689b0a8-53d0-40ab-baf2-68738e2966ac # AllViewerExceptHostHeader
+          # The account endpoints authenticate with an Authorization header,
+          # which the /prod/* behaviour below deliberately does not forward:
+          # forwarding it there would either break caching of the video pages
+          # or cache a copy per token. These are per-user responses, so they
+          # are not cached at all and every viewer header is passed through.
+          #
+          # Two patterns, because CloudFront's /prod/me/* needs the trailing
+          # slash and would not match /prod/me itself.
+          - PathPattern: /prod/me
+            TargetOriginId: !Sub ${AWS::StackName}-api-videohunter-gtw-origin
+            ViewerProtocolPolicy: redirect-to-https
+            AllowedMethods:
+              - GET
+              - HEAD
+              - OPTIONS
+              - POST
+              - PUT
+              - PATCH
+              - DELETE
+            CachedMethods:
+              - GET
+              - HEAD
+            CachePolicyId: 4135ea2d-6df8-44a3-9df3-4b5a84be39ad # CachingDisabled
+            OriginRequestPolicyId: b689b0a8-53d0-40ab-baf2-68738e2966ac # AllViewerExceptHostHeader
+          - PathPattern: /prod/me/*
+            TargetOriginId: !Sub ${AWS::StackName}-api-videohunter-gtw-origin
+            ViewerProtocolPolicy: redirect-to-https
+            AllowedMethods:
+              - GET
+              - HEAD
+              - OPTIONS
+              - POST
+              - PUT
+              - PATCH
+              - DELETE
+            CachedMethods:
+              - GET
+              - HEAD
+            CachePolicyId: 4135ea2d-6df8-44a3-9df3-4b5a84be39ad # CachingDisabled
             OriginRequestPolicyId: b689b0a8-53d0-40ab-baf2-68738e2966ac # AllViewerExceptHostHeader
           - PathPattern: /prod/*
             TargetOriginId: !Sub ${AWS::StackName}-api-videohunter-gtw-origin

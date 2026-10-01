@@ -2,6 +2,7 @@ package dynamodb
 
 import (
 	"fmt"
+	"log/slog"
 	"sort"
 	"strings"
 	"time"
@@ -57,6 +58,12 @@ type chatDataRepository struct {
 }
 
 func NewChatDataRepository(client ChatDataDBClient, tableName string) repositories.ChatRepository {
+	if tableName == "" {
+		// A missing table name surfaces much later as a DynamoDB validation
+		// error, so it is called out here where it is obvious.
+		slog.Error("CHAT_DATA_TABLE is not set: chat and account deletion will fail")
+	}
+
 	return &chatDataRepository{client: client, tableName: tableName}
 }
 
