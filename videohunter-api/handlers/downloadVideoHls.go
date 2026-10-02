@@ -5,6 +5,7 @@ import (
 	"log"
 	"net/url"
 	"os"
+	"path"
 	"strings"
 
 	"github.com/aws/aws-lambda-go/events"
@@ -102,12 +103,57 @@ func (h *DownloadVideoHlsHandler) Handle(request *events.LambdaFunctionURLReques
 		log.Println("Error reading video file: ", err)
 	}
 
+	// "inline" serves the video in the browser instead of forcing a download.
+	// On iPhone and iPad a forced download lands in the Files app, where it
+	// has to be found again before it can be shared; opened inline, the system
+	// player offers the share sheet that saves the video to Photos or sends it
+	// to any app in one tap.
+	disposition := "attachment"
+	if request.QueryStringParameters["inline"] == "1" {
+		disposition = "inline"
+	}
+
 	return &events.LambdaFunctionURLStreamingResponse{
 		Body: strings.NewReader(string(content)),
 		Headers: map[string]string{
 			"Content-Type":        "video/mp4",
-			"Content-Disposition": "attachment; filename=myfile.mp4",
+			"Content-Disposition": disposition + `; filename="` + videoFilename(decodedUrl) + `"`,
 		},
 		StatusCode: 200,
 	}, nil
+}
+
+// videoFilename derives a stable, filesystem-safe file name from the
+// requested video URL. The download page names its blob downloads itself, so
+// this name is only seen when the video is opened directly or inline.
+func videoFilename(rawUrl string) string {
+	const fallback = "videohunter.mp4"
+
+	parsed, err := url.Parse(rawUrl)
+	if err != nil || parsed.Path == "" {
+		return fallback
+	}
+
+	base := strings.TrimSuffix(path.Base(parsed.Path), path.Ext(parsed.Path))
+
+	// Keep only the characters every file system accepts, so a CDN file name
+	// can never produce a broken or hostile Content-Disposition value.
+	base = strings.Map(func(r rune) rune {
+		switch {
+		case r >= 'a' && r <= 'z', r >= 'A' && r <= 'Z', r >= '0' && r <= '9', r == '-', r == '_':
+			return r
+		default:
+			return -1
+		}
+	}, base)
+
+	if base == "" {
+		return fallback
+	}
+
+	if len(base) > 50 {
+		base = base[:50]
+	}
+
+	return "videohunter-" + base + ".mp4"
 }
