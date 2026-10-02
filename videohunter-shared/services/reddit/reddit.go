@@ -409,9 +409,21 @@ var (
 // submit the solved form with the page's cookies, and read the post permalink
 // out of the response. An unknown or expired share id lands on the subreddit
 // feed instead, which the permalink extraction treats as an unresolved link.
+//
+// The www host answers the Lambda's IP with a block page, so with credentials
+// the share pages are fetched from the OAuth host, like the data API reads.
 func (r *redditDownloaderRepository) ResolveShareUrl(shareUrl string) (string, error) {
 
-	page, err := r.fetchSharePage(shareUrl, "", "")
+	authorization, err := r.GetAuthToken()
+	if err != nil {
+		return "", err
+	}
+
+	if authorization != "" {
+		shareUrl = withOauthHost(shareUrl)
+	}
+
+	page, err := r.fetchSharePage(shareUrl, "", "", authorization)
 	if err != nil {
 		return "", err
 	}
@@ -426,7 +438,7 @@ func (r *redditDownloaderRepository) ResolveShareUrl(shareUrl string) (string, e
 			return "", err
 		}
 
-		page, err = r.fetchSharePage(submitUrl, shareUrl, strings.Join(page.cookies, "; "))
+		page, err = r.fetchSharePage(submitUrl, shareUrl, strings.Join(page.cookies, "; "), authorization)
 		if err != nil {
 			return "", err
 		}
@@ -457,8 +469,9 @@ type sharePage struct {
 // fetchSharePage fetches one page of the share link resolution. A Referer is
 // only sent for the challenge submission, which is the request a browser
 // makes from the challenge page; cookies are passed through so the challenge
-// is validated by the edge that issued it.
-func (r *redditDownloaderRepository) fetchSharePage(target, referer, cookie string) (*sharePage, error) {
+// is validated by the edge that issued it; the authorization carries the
+// app's token on the OAuth host.
+func (r *redditDownloaderRepository) fetchSharePage(target, referer, cookie, authorization string) (*sharePage, error) {
 
 	req, err := http.NewRequest("GET", target, nil)
 	if err != nil {
@@ -474,6 +487,10 @@ func (r *redditDownloaderRepository) fetchSharePage(target, referer, cookie stri
 
 	if cookie != "" {
 		req.Header.Set("Cookie", cookie)
+	}
+
+	if authorization != "" {
+		req.Header.Set("Authorization", authorization)
 	}
 
 	resp, err := r.client.Do(req)

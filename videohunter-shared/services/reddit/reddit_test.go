@@ -410,3 +410,54 @@ func TestDownloadVideo_UnsupportedShareChallengeIsUpstream(t *testing.T) {
 	assert.ErrorAs(t, err, &upstream)
 	assert.Len(t, client.requests, 1)
 }
+
+func TestDownloadVideo_ResolvesShareLinkThroughOauthHost(t *testing.T) {
+
+	t.Setenv("REDDIT_CLIENT_ID", "real-id")
+	t.Setenv("REDDIT_CLIENT_SECRET", "real-secret")
+
+	// On the OAuth host the challenge form's action is the post itself,
+	// and the www host answers the Lambda's IP with a block page.
+	challenge := newResponse(http.StatusOK, strings.Replace(shareChallengeFixture,
+		`action="/r/soccer/"`,
+		`action="/r/soccer/comments/1wt3r4i/president_of_flamengo_eduardo_baptista_bap_on_the/"`, 1))
+	challenge.Header.Set("Set-Cookie", "edgebucket=AbCdEfGh123; Domain=reddit.com; Path=/")
+
+	client := &stubClient{responses: []*http.Response{
+		newResponse(http.StatusOK, tokenFixture),
+		challenge,
+		newResponse(http.StatusOK, sharePostPageFixture),
+		newResponse(http.StatusOK, videoListingFixture),
+	}}
+	repository := NewRedditDownloaderRepository(client)
+
+	video, _, err := repository.DownloadVideo("https://www.reddit.com/r/soccer/s/uWokEKiEcS")
+
+	assert.NoError(t, err)
+	assert.NotNil(t, video)
+	// Token exchange, challenge fetch, challenge submit, post read.
+	assert.Len(t, client.requests, 4)
+
+	// The share page is fetched from the OAuth host, authenticated.
+	challengeReq := client.requests[1]
+	assert.Equal(t, oauthHost, challengeReq.URL.Host)
+	assert.Equal(t, "/r/soccer/s/uWokEKiEcS", challengeReq.URL.Path)
+	assert.Equal(t, "Bearer token-abc", challengeReq.Header.Get("Authorization"))
+
+	// The submission goes to the form's action on the OAuth host, with the
+	// token, the solved challenge and the challenge page's cookies.
+	submit := client.requests[2]
+	assert.Equal(t, oauthHost, submit.URL.Host)
+	assert.Equal(t, "/r/soccer/comments/1wt3r4i/president_of_flamengo_eduardo_baptista_bap_on_the/", submit.URL.Path)
+	assert.Equal(t, "cf8258d6682da2c1cf8258d6682da2c1", submit.URL.Query().Get("solution"))
+	assert.Equal(t, "token-123", submit.URL.Query().Get("jsc_token"))
+	assert.Equal(t, "Bearer token-abc", submit.Header.Get("Authorization"))
+	assert.Equal(t, "edgebucket=AbCdEfGh123", submit.Header.Get("Cookie"))
+	assert.Equal(t, "https://oauth.reddit.com/r/soccer/s/uWokEKiEcS", submit.Header.Get("Referer"))
+
+	// The post is then read from the extracted permalink.
+	read := client.requests[3]
+	assert.Equal(t, oauthHost, read.URL.Host)
+	assert.Equal(t, "/r/soccer/comments/1wt3r4i/president_of_flamengo_eduardo_baptista_bap_on_the.json", read.URL.Path)
+	assert.Equal(t, "Bearer token-abc", read.Header.Get("Authorization"))
+}
