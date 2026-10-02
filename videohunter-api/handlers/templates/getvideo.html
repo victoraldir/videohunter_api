@@ -66,40 +66,154 @@
             document.getElementById('loadingSpinner').style.display = 'none';
         }
 
-        function downloadVideo(videoUrl) {
-            showLoadingSpinner();
-            let oReq = new XMLHttpRequest();
+        // The download buttons have to behave differently depending on where
+        // the page is opened:
+        //
+        // - In a normal browser the video is fetched as a blob and saved with
+        //   a spinner, which is how the page has always worked.
+        // - On iPhone and iPad the button opens the video in the system player
+        //   (inline=1) instead. A forced download lands in the Files app where
+        //   it has to be found again before it can be shared; from the player
+        //   the share sheet saves the video to Photos or sends it to any app
+        //   in one tap.
+        // - In-app browsers (X, Instagram, Facebook, TikTok, Telegram...)
+        //   silently ignore downloads, so a tap appears to do nothing. No
+        //   JavaScript can force a download there, so the page asks to be
+        //   reopened in a real browser instead.
+        (function () {
+            var ua = navigator.userAgent;
+
+            function isIOS() {
+                return /iPad|iPhone|iPod/.test(ua) ||
+                    (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1);
+            }
+
+            // X's in-app browser identifies itself as "Twitter for iPhone".
+            // The others are the webviews known to carry a marker; those
+            // without one (Slack, Discord, Reddit) cannot be detected this way.
+            function inAppName() {
+                if (/Twitter/i.test(ua)) return 'X';
+                if (/Instagram/i.test(ua)) return 'Instagram';
+                if (/Barcelona/i.test(ua)) return 'Threads';
+                if (/FBAN|FBAV|FBIOS/i.test(ua)) return 'Facebook';
+                if (/musical_ly|BytedanceWebview/i.test(ua)) return 'TikTok';
+                if (/LinkedInApp/i.test(ua)) return 'LinkedIn';
+                if (/Snapchat/i.test(ua)) return 'Snapchat';
+                if (window.Telegram || window.TelegramWebviewProxy) return 'Telegram';
+                return '';
+            }
 
             // All videos use the proxy endpoint to avoid CORS issues
-            // Twitter's video CDN blocks direct browser requests
-            // Keep query params (like ?tag=21) as they're needed for the video
-            const downloadUrl = '/prod/download?url=' + encodeURIComponent(videoUrl);
+            // (Twitter's video CDN blocks direct browser requests). Keep query
+            // params (like ?tag=21) as they're needed for the video.
+            function downloadAsBlob(videoUrl) {
+                showLoadingSpinner();
+                var oReq = new XMLHttpRequest();
+                var downloadUrl = '/prod/download?url=' + encodeURIComponent(videoUrl);
 
-            // Create a link element to trigger the download
-            let a = document.createElement('a');
-            a.style.display = 'none';
-            document.body.appendChild(a);
+                // Create a link element to trigger the download
+                var a = document.createElement('a');
+                a.style.display = 'none';
+                document.body.appendChild(a);
 
-            oReq.responseType = 'blob';
-            oReq.onload = function (e) {
-                if (this.status === 200) {
-                    var blob = e.currentTarget.response;
-                    let currentDate = new Date();
-                    var fileName = 'video_' + currentDate.getTime() + '.mp4';
-                    a.href = window.URL.createObjectURL(blob);
-                    a.download = fileName;
-                    a.click();
+                oReq.responseType = 'blob';
+                oReq.onload = function (e) {
+                    if (this.status === 200) {
+                        var blob = e.currentTarget.response;
+                        var fileName = 'video_' + new Date().getTime() + '.mp4';
+                        a.href = window.URL.createObjectURL(blob);
+                        a.download = fileName;
+                        a.click();
+                    } else {
+                        alert('Download failed. Please try again.');
+                    }
+                    hideLoadingSpinner();
                     document.body.removeChild(a);
+                };
+                oReq.onerror = function () {
+                    hideLoadingSpinner();
+                    document.body.removeChild(a);
+                    alert('Download failed. Please try again.');
+                };
+                oReq.open("get", downloadUrl, true);
+                oReq.send();
+            }
+
+            function showInAppNotice() {
+                var notice = document.getElementById('inAppNotice');
+                notice.classList.remove('d-none');
+                notice.scrollIntoView({ block: 'center' });
+            }
+
+            function copyPageLink() {
+                var result = document.getElementById('copyLinkResult');
+                var done = function () {
+                    result.textContent = 'Copied. Paste it in your browser.';
+                };
+                var showLink = function () {
+                    // If the clipboard is unavailable, show the link so it can
+                    // at least be read and typed out.
+                    result.textContent = window.location.href;
+                };
+
+                if (navigator.clipboard && navigator.clipboard.writeText) {
+                    navigator.clipboard.writeText(window.location.href).then(done, showLink);
+                } else {
+                    showLink();
                 }
-                hideLoadingSpinner();
-            };
-            oReq.onerror = function () {
-                hideLoadingSpinner();
-                alert('Download failed. Please try again.');
-            };
-            oReq.open("get", downloadUrl, true);
-            oReq.send();
-        }
+            }
+
+            function setupInAppBrowser(name) {
+                document.getElementById('inAppName').textContent = name;
+                document.getElementById('inAppNotice').classList.remove('d-none');
+                document.getElementById('copyLinkButton').addEventListener('click', copyPageLink);
+                // Navigating would be silently dropped by the in-app browser,
+                // so the buttons surface the notice instead.
+                document.querySelectorAll('.download-button').forEach(function (button) {
+                    button.addEventListener('click', function (event) {
+                        event.preventDefault();
+                        showInAppNotice();
+                    });
+                });
+            }
+
+            function setupIOS() {
+                // The video opens in the player, and its share sheet is the
+                // quickest way to save or send it. The "save to files" link
+                // keeps the old behaviour for whoever wants the file itself.
+                document.querySelectorAll('.download-button').forEach(function (button) {
+                    button.href = button.href + '&inline=1';
+                });
+                document.getElementById('iosHint').classList.remove('d-none');
+                document.getElementById('saveToFiles').addEventListener('click', function (event) {
+                    event.preventDefault();
+                    var first = document.querySelector('.download-button');
+                    if (first) {
+                        downloadAsBlob(first.getAttribute('data-video'));
+                    }
+                });
+            }
+
+            function setupDefault() {
+                document.querySelectorAll('.download-button').forEach(function (button) {
+                    button.addEventListener('click', function (event) {
+                        event.preventDefault();
+                        downloadAsBlob(button.getAttribute('data-video'));
+                    });
+                });
+            }
+
+            document.addEventListener('DOMContentLoaded', function () {
+                var name = inAppName();
+                if (name) {
+                    setupInAppBrowser(name);
+                } else if (isIOS()) {
+                    setupIOS();
+                } else {
+                    setupDefault();
+                }
+            });
+        })();
     </script>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js"></script>
@@ -187,14 +301,34 @@
                         rel="noopener">Original URL</a>
                     <p class="card-text">{{ .Video.Text }}</p>
                     <section>
+                        {{/* In-app browsers (X, Instagram, Facebook, TikTok,
+                             Telegram, ...) silently ignore downloads, so the
+                             script above unhides this notice when the page is
+                             opened inside one. */}}
+                        <div id="inAppNotice" class="alert alert-warning d-none text-start" role="alert">
+                            <strong id="inAppName">This app</strong> opens links in its own browser, which does not
+                            download files. Tap the share icon or the &hellip; menu and choose <strong>Open in
+                                Safari</strong> (or <strong>Open in browser</strong>), then download the video
+                            there.
+                            <div class="mt-2">
+                                <button type="button" class="btn btn-sm btn-outline-dark"
+                                    id="copyLinkButton">Copy this page's link</button>
+                                <span id="copyLinkResult" class="ms-2 small"></span>
+                            </div>
+                        </div>
                         <div class="d-grid gap-2 col-6 mx-auto">
                             {{ range $key, $value := .Video.Variants }}
                             {{ if ne $value.GetVidResFromUrl ".m3u8" }}
-                            <a onclick="downloadVideo('{{ $value.URL }}')" class="btn btn-primary"
-                                type="button">Download: {{ $value.GetVidResFromUrl }}</a>
+                            <a href="/prod/download?url={{ $value.URL | urlquery }}" data-video="{{ $value.URL }}"
+                                rel="nofollow" class="btn btn-primary download-button">Download: {{ $value.GetVidResFromUrl }}</a>
                             {{ end }}
                             {{ end }}
                         </div>
+                        {{/* Unhidden on iPhone and iPad by the script above. */}}
+                        <p id="iosHint" class="small text-muted mt-3 mb-0 d-none">
+                            The video opens in the player: use its share button to save it to Photos or share it
+                            anywhere. Prefer a file? <a href="#" id="saveToFiles">Save to Files</a>.
+                        </p>
                     </section>
                     {{/* Filled in by /assets/video-page.js: a "save to a folder"
                          button for signed in users, a login link otherwise. */}}
@@ -210,9 +344,12 @@
         <h2 class="h5">How to download this video</h2>
         <ol>
             <li>Click the download button for the quality you want.</li>
-            <li>The video is saved to your device's default download folder.</li>
-            <li>If the video opens in a player instead of saving, tap and hold (mobile) or right-click (desktop) and
-                choose "Save link as".</li>
+            <li>On iPhone and iPad the video opens in the player: use its Share button to save the video to Photos
+                or share it to any app. On desktop and Android the video is saved to your device's default
+                download folder.</li>
+            <li>Downloading from inside the X (Twitter), Instagram, Facebook or Telegram app? Their in-app browsers
+                block downloads, so nothing is saved. Copy the page link, open it in Safari or Chrome and download
+                there.</li>
         </ol>
         <p>Video Hunter is a free online video downloader for <a
                 href="/x-video-downloader.html">X (Twitter)</a>, <a href="/reddit-video-downloader.html">Reddit</a> and
