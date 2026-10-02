@@ -38,6 +38,36 @@ const videoListingFixture = `[
 
 const tokenFixture = `{"access_token": "token-abc", "token_type": "bearer", "expires_in": 3600}`
 
+// shareChallengeFixture mirrors the anti-bot page Reddit serves for /s/ share
+// links: a hidden form plus the script that solves the challenge and submits
+// it, with the solution being the token concatenated with itself.
+const shareChallengeFixture = `<!DOCTYPE html>
+<html><head><title>Reddit</title></head><body>
+<form hidden method="GET" action="/r/soccer/">
+<input type="hidden" name="solution" />
+<input type="hidden" name="js_challenge" value="1"/>
+<input type="hidden" name="jsc_token" value="token-123"/>
+<input type="hidden" name="jsc_orig_r" value=""/>
+</form>
+<script nonce="x">
+document.addEventListener("DOMContentLoaded",async function(){var e=document.forms[0],n=(e.onsubmit=function(t){return new URLSearchParams(document.location.search).forEach((e,n)=>t.target.appendChild(Object.assign(document.createElement("input"),{name:n,type:"hidden",value:e}))),!0},await(async e=>e+e)("cf8258d6682da2c1"));e.elements.namedItem("solution").value=n,e.requestSubmit()},{once:!0});
+</script>
+</body></html>`
+
+// sharePostPageFixture is a resolved share: every permalink is the same post.
+const sharePostPageFixture = `
+<a href="/r/soccer/comments/1wt3r4i/president_of_flamengo_eduardo_baptista_bap_on_the/">President of Flamengo</a>
+<a href="/r/soccer/comments/1wt3r4i/comment/">comment</a>
+`
+
+// shareFeedPageFixture is what an expired share id lands on: the subreddit
+// feed, whose permalinks are many different posts.
+const shareFeedPageFixture = `
+<a href="/r/botecodoreddit/comments/1qhjqwp/ajude_em_uma_pesquisa/">one</a>
+<a href="/r/botecodoreddit/comments/1q3f5uc/politica_de_ia/">two</a>
+<a href="/r/botecodoreddit/comments/1kk3fat/pr/">three</a>
+`
+
 type stubClient struct {
 	responses []*http.Response
 	errs      []error
@@ -278,4 +308,105 @@ func TestGetJsonUrl(t *testing.T) {
 		_, err := repository.GetJsonUrl("https://www.reddit.com/r/videos")
 		assert.Error(t, err)
 	})
+}
+
+func TestDownloadVideo_ResolvesShareLinkChallenge(t *testing.T) {
+
+	challenge := newResponse(http.StatusOK, shareChallengeFixture)
+	challenge.Header.Set("Set-Cookie", "edgebucket=AbCdEfGh123; Domain=reddit.com; Path=/")
+
+	client := &stubClient{responses: []*http.Response{
+		challenge,
+		newResponse(http.StatusOK, sharePostPageFixture),
+		newResponse(http.StatusOK, videoListingFixture),
+	}}
+	repository := NewRedditDownloaderRepository(client)
+
+	video, _, err := repository.DownloadVideo("https://www.reddit.com/r/soccer/s/uWokEKiEcS?share_id=42&utm_source=share")
+
+	assert.NoError(t, err)
+	assert.NotNil(t, video)
+	// Challenge fetch, challenge submission, post read.
+	assert.Len(t, client.requests, 3)
+
+	// The challenge page is fetched as a plain browser navigation.
+	challengeReq := client.requests[0]
+	assert.Equal(t, "www.reddit.com", challengeReq.URL.Host)
+	assert.Equal(t, "/r/soccer/s/uWokEKiEcS", challengeReq.URL.Path)
+	assert.Empty(t, challengeReq.Header.Get("Referer"))
+
+	// The submission mirrors the served script: the token concatenated with
+	// itself, the form's hidden fields, the share link's own query params,
+	// the challenge page's cookies, and the share link as the referer.
+	submit := client.requests[1]
+	assert.Equal(t, "/r/soccer/", submit.URL.Path)
+	assert.Equal(t, "cf8258d6682da2c1cf8258d6682da2c1", submit.URL.Query().Get("solution"))
+	assert.Equal(t, "1", submit.URL.Query().Get("js_challenge"))
+	assert.Equal(t, "token-123", submit.URL.Query().Get("jsc_token"))
+	assert.Empty(t, submit.URL.Query().Get("jsc_orig_r"))
+	assert.Equal(t, "42", submit.URL.Query().Get("share_id"))
+	assert.Equal(t, "share", submit.URL.Query().Get("utm_source"))
+	assert.Equal(t, "https://www.reddit.com/r/soccer/s/uWokEKiEcS?share_id=42&utm_source=share", submit.Header.Get("Referer"))
+	assert.Equal(t, "edgebucket=AbCdEfGh123", submit.Header.Get("Cookie"))
+
+	// The post is then read from the permalink extracted off the page.
+	read := client.requests[2]
+	assert.Equal(t, "/r/soccer/comments/1wt3r4i/president_of_flamengo_eduardo_baptista_bap_on_the.json", read.URL.Path)
+}
+
+func TestDownloadVideo_UnresolvedShareLinkIsInvalidPost(t *testing.T) {
+
+	client := &stubClient{responses: []*http.Response{
+		newResponse(http.StatusOK, shareChallengeFixture),
+		newResponse(http.StatusOK, shareFeedPageFixture),
+	}}
+	repository := NewRedditDownloaderRepository(client)
+
+	_, _, err := repository.DownloadVideo("https://www.reddit.com/r/botecodoreddit/s/LzWKIr9zmt")
+
+	// An expired share id lands on the subreddit feed: many different
+	// posts, no single permalink to resolve to.
+	var invalidPost *InvalidPostError
+	assert.ErrorAs(t, err, &invalidPost)
+	assert.Len(t, client.requests, 2)
+}
+
+func TestDownloadVideo_FollowsShareLinkRedirect(t *testing.T) {
+
+	redirect := newResponse(http.StatusFound, "")
+	redirect.Header.Set("Location", "/r/soccer/comments/1wt3r4i/president_of_flamengo_eduardo_baptista_bap_on_the/")
+
+	client := &stubClient{responses: []*http.Response{
+		redirect,
+		newResponse(http.StatusOK, videoListingFixture),
+	}}
+	repository := NewRedditDownloaderRepository(client)
+
+	video, _, err := repository.DownloadVideo("https://www.reddit.com/r/soccer/s/uWokEKiEcS")
+
+	// A share link answered with a redirect resolves straight to the post.
+	assert.NoError(t, err)
+	assert.NotNil(t, video)
+	assert.Len(t, client.requests, 2)
+
+	read := client.requests[1]
+	assert.Equal(t, "/r/soccer/comments/1wt3r4i/president_of_flamengo_eduardo_baptista_bap_on_the.json", read.URL.Path)
+}
+
+func TestDownloadVideo_UnsupportedShareChallengeIsUpstream(t *testing.T) {
+
+	// A puzzle the script no longer solves the way we expect: upstream
+	// change, not a problem with the link.
+	variant := strings.Replace(shareChallengeFixture, "await(async e=>e+e)", "await(async e=>e+n)", 1)
+
+	client := &stubClient{responses: []*http.Response{
+		newResponse(http.StatusOK, variant),
+	}}
+	repository := NewRedditDownloaderRepository(client)
+
+	_, _, err := repository.DownloadVideo("https://www.reddit.com/r/soccer/s/uWokEKiEcS")
+
+	var upstream *UpstreamError
+	assert.ErrorAs(t, err, &upstream)
+	assert.Len(t, client.requests, 1)
 }
