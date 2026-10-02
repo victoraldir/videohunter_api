@@ -72,8 +72,16 @@ func NewGetXAPIService(client services.HttpClient, apiKey string) *getXAPIServic
 
 // SearchMentions returns the latest tweets mentioning botUsername. Results are
 // returned newest-first, ~20 per page. Pass an empty cursor for the first page.
+//
+// The query excludes the bot's own tweets. X's Latest search treats a bare
+// "@handle" query inconsistently and returns a stale result set that hides the
+// newest mentions (verified 2026-10-02: the bare query stayed pinned ~9h in the
+// past while the equivalent parenthesized query returned current mentions).
+// Wrapping the handle in parentheses and dropping the bot's own tweets forces
+// the correct path — the usecase already ignores own tweets, so nothing is lost.
 func (g *getXAPIService) SearchMentions(botUsername, cursor string) (*domain.TweetSearchResponse, error) {
-	query := fmt.Sprintf("@%s", strings.TrimPrefix(botUsername, "@"))
+	handle := strings.TrimPrefix(botUsername, "@")
+	query := fmt.Sprintf("(@%s) -from:%s", handle, handle)
 
 	values := url.Values{
 		"q":       []string{query},
