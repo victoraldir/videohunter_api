@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"regexp"
 	"strings"
 	"sync"
 	"time"
@@ -357,42 +358,15 @@ func (r *redditDownloaderRepository) GetJsonUrl(url string) (string, error) {
 
 	// Check if url is short url
 	if splitUrl[5] == "s" {
-		// Get the Location header. We need to configure the client to not follow redirects
-		client := &http.Client{
-			CheckRedirect: func(req *http.Request, via []*http.Request) error {
-				return http.ErrUseLastResponse
-			},
-		}
-
-		req, err := http.NewRequest("GET", url, nil)
-
+		// Share links stopped redirecting upstream: they now serve an
+		// anti-bot page that a browser solves and submits. ResolveShareUrl
+		// performs those steps and returns the post permalink.
+		resolved, err := r.ResolveShareUrl(url)
 		if err != nil {
 			return "", err
 		}
 
-		req.Header.Set("User-Agent", userAgent)
-
-		// Set Authorization header. The redirect endpoint does not need it,
-		// but an authenticated short link resolution does no harm.
-		authorization, _ := r.GetAuthToken()
-
-		if authorization != "" {
-			req.Header.Set("Authorization", authorization)
-		}
-
-		resp, err := client.Do(req)
-
-		if err != nil {
-			return "", err
-		}
-
-		defer resp.Body.Close()
-
-		url = resp.Header.Get("Location")
-
-		if url == "" {
-			return "", fmt.Errorf("error getting location header")
-		}
+		url = resolved
 	}
 
 	splitUrlQuery := strings.Split(url, "?")
@@ -405,4 +379,236 @@ func (r *redditDownloaderRepository) GetJsonUrl(url string) (string, error) {
 	urlWithExtension := url + ".json"
 
 	return urlWithExtension, nil
+}
+
+// --- Share links ---------------------------------------------------------
+
+const (
+	// challengeMarker identifies the anti-bot page served for /s/ share
+	// links instead of a redirect.
+	challengeMarker = `name="js_challenge"`
+	// wwwHost is where share pages and post pages live; only data API reads
+	// move to the OAuth host.
+	wwwHost = "https://www.reddit.com"
+)
+
+var (
+	challengeScriptRe   = regexp.MustCompile(`(?s)<script[^>]*>(.*?)</script>`)
+	challengeSolutionRe = regexp.MustCompile(`\(\s*async\s*(\w+)\s*=>\s*(\w+)\s*\+\s*(\w+)\s*\)\s*\(\s*"([0-9a-f]+)"\s*\)`)
+	shareFormActionRe   = regexp.MustCompile(`<form[^>]*\saction="([^"]*)"`)
+	shareFormTokenRe    = regexp.MustCompile(`name="jsc_token"[^>]*value="([^"]*)"`)
+	shareFormOrigRRe    = regexp.MustCompile(`name="jsc_orig_r"[^>]*value="([^"]*)"`)
+	sharePermalinkRe    = regexp.MustCompile(`(/r/[A-Za-z0-9_%]+/comments/([a-z0-9]+)/[A-Za-z0-9_%]*)`)
+)
+
+// ResolveShareUrl turns a /s/ share link into the post permalink.
+//
+// Reddit stopped redirecting share links: they now serve an anti-bot page
+// whose script solves a small challenge and submits a hidden form, and only
+// then is the post served. The same steps work from here: fetch the page,
+// submit the solved form with the page's cookies, and read the post permalink
+// out of the response. An unknown or expired share id lands on the subreddit
+// feed instead, which the permalink extraction treats as an unresolved link.
+func (r *redditDownloaderRepository) ResolveShareUrl(shareUrl string) (string, error) {
+
+	page, err := r.fetchSharePage(shareUrl, "", "")
+	if err != nil {
+		return "", err
+	}
+
+	if page.location != "" {
+		return absoluteUrl(page.location, shareUrl), nil
+	}
+
+	if page.statusCode == http.StatusOK && strings.Contains(page.body, challengeMarker) {
+		submitUrl, err := solveShareChallenge(shareUrl, page)
+		if err != nil {
+			return "", err
+		}
+
+		page, err = r.fetchSharePage(submitUrl, shareUrl, strings.Join(page.cookies, "; "))
+		if err != nil {
+			return "", err
+		}
+
+		if page.location != "" {
+			return absoluteUrl(page.location, shareUrl), nil
+		}
+	}
+
+	if page.statusCode != http.StatusOK {
+		if page.statusCode == http.StatusNotFound {
+			return "", &InvalidPostError{StatusCode: page.statusCode, Err: fmt.Errorf("share link not found")}
+		}
+		return "", &UpstreamError{StatusCode: page.statusCode, Err: fmt.Errorf("share link fetch returned status %d", page.statusCode)}
+	}
+
+	return extractSharePermalink(page.body)
+}
+
+// sharePage is one fetched page of the share link resolution.
+type sharePage struct {
+	body       string
+	location   string
+	statusCode int
+	cookies    []string
+}
+
+// fetchSharePage fetches one page of the share link resolution. A Referer is
+// only sent for the challenge submission, which is the request a browser
+// makes from the challenge page; cookies are passed through so the challenge
+// is validated by the edge that issued it.
+func (r *redditDownloaderRepository) fetchSharePage(target, referer, cookie string) (*sharePage, error) {
+
+	req, err := http.NewRequest("GET", target, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Set("User-Agent", userAgent)
+	req.Header.Set("Accept", "text/html")
+
+	if referer != "" {
+		req.Header.Set("Referer", referer)
+	}
+
+	if cookie != "" {
+		req.Header.Set("Cookie", cookie)
+	}
+
+	resp, err := r.client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	content, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	page := &sharePage{
+		body:       string(content),
+		location:   resp.Header.Get("Location"),
+		statusCode: resp.StatusCode,
+	}
+
+	for _, c := range resp.Cookies() {
+		page.cookies = append(page.cookies, c.Name+"="+c.Value)
+	}
+
+	return page, nil
+}
+
+// solveShareChallenge builds the form submission the challenge page's script
+// performs in a browser: the solution is the challenge token concatenated
+// with itself, and the form carries its own hidden fields plus the share
+// link's query parameters.
+func solveShareChallenge(shareUrl string, page *sharePage) (string, error) {
+
+	action := shareFormActionRe.FindStringSubmatch(page.body)
+	if action == nil {
+		return "", &UpstreamError{Err: errors.New("no share challenge form found")}
+	}
+
+	solution, ok := solveChallengeSolution(page.body)
+	if !ok {
+		return "", &UpstreamError{Err: errors.New("unsupported reddit share challenge")}
+	}
+
+	var token, origR string
+	if m := shareFormTokenRe.FindStringSubmatch(page.body); m != nil {
+		token = m[1]
+	}
+	if m := shareFormOrigRRe.FindStringSubmatch(page.body); m != nil {
+		origR = m[1]
+	}
+
+	submitUrl, err := url.Parse(absoluteUrl(action[1], shareUrl))
+	if err != nil {
+		return "", err
+	}
+
+	query := submitUrl.Query()
+	query.Set("solution", solution)
+	query.Set("js_challenge", "1")
+	query.Set("jsc_token", token)
+	query.Set("jsc_orig_r", origR)
+
+	// The served script forwards the share link's own query parameters
+	// (share_id and friends) into the submission.
+	if shared, err := url.Parse(shareUrl); err == nil {
+		for key, values := range shared.Query() {
+			for _, value := range values {
+				query.Set(key, value)
+			}
+		}
+	}
+
+	submitUrl.RawQuery = query.Encode()
+
+	return submitUrl.String(), nil
+}
+
+// solveChallengeSolution reads the challenge out of the served script. Only
+// the self concatenation the script performs is understood; a different
+// challenge is a Reddit change, not a problem with the link.
+func solveChallengeSolution(body string) (string, bool) {
+
+	for _, script := range challengeScriptRe.FindAllStringSubmatch(body, -1) {
+		m := challengeSolutionRe.FindStringSubmatch(script[1])
+		if m == nil {
+			continue
+		}
+
+		if m[1] == m[2] && m[2] == m[3] {
+			return m[4] + m[4], true
+		}
+	}
+
+	return "", false
+}
+
+// extractSharePermalink finds the post permalink on a resolved share page. A
+// resolved page is a post: every permalink on it is the same post. An
+// unresolved share id lands on the subreddit feed, whose permalinks are many
+// different posts, so anything other than exactly one post id is an
+// unresolved link.
+func extractSharePermalink(body string) (string, error) {
+
+	permalinks := make(map[string]string)
+	for _, m := range sharePermalinkRe.FindAllStringSubmatch(body, -1) {
+		// The post permalink is what a page renders first; a comment
+		// permalink to the same post must not replace it.
+		if _, seen := permalinks[m[2]]; !seen {
+			permalinks[m[2]] = m[1]
+		}
+	}
+
+	if len(permalinks) != 1 {
+		return "", &InvalidPostError{StatusCode: http.StatusNotFound, Err: fmt.Errorf("share link does not lead to a post")}
+	}
+
+	var permalink string
+	for _, p := range permalinks {
+		permalink = p
+	}
+
+	return wwwHost + permalink, nil
+}
+
+// absoluteUrl resolves a Location header value against the URL it came from.
+func absoluteUrl(location, base string) string {
+
+	parsed, err := url.Parse(location)
+	if err != nil || parsed.IsAbs() {
+		return location
+	}
+
+	baseUrl, err := url.Parse(base)
+	if err != nil {
+		return location
+	}
+
+	return baseUrl.ResolveReference(parsed).String()
 }
