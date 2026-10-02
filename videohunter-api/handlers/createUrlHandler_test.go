@@ -89,6 +89,20 @@ func TestCreateUrlHandler_Handle(t *testing.T) {
 		assert.Contains(t, messageOf(t, response.Body), "no downloadable video")
 	})
 
+	t.Run("reports a blocked share link with guidance instead of a retry hint", func(t *testing.T) {
+		handler := CreateUrlHandler{
+			VideoDownloaderUseCase: stubVideoDownloader{
+				err: &reddit.BlockedShareLinkError{StatusCode: 403, Err: errors.New("share link fetch returned status 403")},
+			},
+		}
+
+		response, err := handler.Handle(createUrlRequest(t, `{"video_url":"https://www.reddit.com/r/soccer/s/uWokEKiEcS"}`))
+
+		assert.NoError(t, err)
+		assert.Equal(t, http.StatusBadRequest, response.StatusCode)
+		assert.Contains(t, messageOf(t, response.Body), "Open the link in your browser")
+	})
+
 	t.Run("reports an unreachable platform as a bad gateway", func(t *testing.T) {
 		handler := CreateUrlHandler{
 			VideoDownloaderUseCase: stubVideoDownloader{

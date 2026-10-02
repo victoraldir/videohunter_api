@@ -333,6 +333,7 @@ func TestDownloadVideo_ResolvesShareLinkChallenge(t *testing.T) {
 	challengeReq := client.requests[0]
 	assert.Equal(t, "www.reddit.com", challengeReq.URL.Host)
 	assert.Equal(t, "/r/soccer/s/uWokEKiEcS", challengeReq.URL.Path)
+	assert.Equal(t, browserUserAgent, challengeReq.Header.Get("User-Agent"))
 	assert.Empty(t, challengeReq.Header.Get("Referer"))
 
 	// The submission mirrors the served script: the token concatenated with
@@ -411,6 +412,23 @@ func TestDownloadVideo_UnsupportedShareChallengeIsUpstream(t *testing.T) {
 	assert.Len(t, client.requests, 1)
 }
 
+func TestDownloadVideo_BlockedShareLinkIsItsOwnError(t *testing.T) {
+
+	// Reddit serves the share pages to residential IPs but blocks this
+	// service's IP range; that answer needs its own guidance, not a retry.
+	client := &stubClient{responses: []*http.Response{
+		newResponse(http.StatusForbidden, ""),
+	}}
+	repository := NewRedditDownloaderRepository(client)
+
+	_, _, err := repository.DownloadVideo("https://www.reddit.com/r/soccer/s/uWokEKiEcS")
+
+	var blocked *BlockedShareLinkError
+	assert.ErrorAs(t, err, &blocked)
+	assert.Equal(t, http.StatusForbidden, blocked.StatusCode)
+	assert.Len(t, client.requests, 1)
+}
+
 func TestDownloadVideo_ResolvesShareLinkThroughOauthHost(t *testing.T) {
 
 	t.Setenv("REDDIT_CLIENT_ID", "real-id")
@@ -442,6 +460,7 @@ func TestDownloadVideo_ResolvesShareLinkThroughOauthHost(t *testing.T) {
 	challengeReq := client.requests[1]
 	assert.Equal(t, oauthHost, challengeReq.URL.Host)
 	assert.Equal(t, "/r/soccer/s/uWokEKiEcS", challengeReq.URL.Path)
+	assert.Equal(t, browserUserAgent, challengeReq.Header.Get("User-Agent"))
 	assert.Equal(t, "Bearer token-abc", challengeReq.Header.Get("Authorization"))
 
 	// The submission goes to the form's action on the OAuth host, with the
