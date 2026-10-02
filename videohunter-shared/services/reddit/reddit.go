@@ -2,12 +2,15 @@ package reddit
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log/slog"
 	"net/http"
+	"net/url"
 	"os"
 	"strings"
+	"sync"
 	"time"
 
 	shared_domain "github.com/victoraldir/myvideohuntershared/domain"
@@ -20,6 +23,16 @@ const (
 	// requestAttempts is how many times a rate limited or failed request is
 	// retried before giving up.
 	requestAttempts = 3
+	// tokenUrl exchanges the app credentials for a bearer token. It is the
+	// only request that keeps going to www.reddit.com once OAuth is in use.
+	tokenUrl = "https://www.reddit.com/api/v1/access_token"
+	// oauthHost is the host that serves the data API to authenticated apps.
+	// Reddit answers unauthenticated JSON reads on the www host with 403,
+	// whatever user agent or IP asks.
+	oauthHost = "oauth.reddit.com"
+	// tokenExpiryMargin is subtracted from the token lifetime so a read never
+	// races the real expiry.
+	tokenExpiryMargin = time.Minute
 )
 
 // retryBackoff is multiplied by the attempt number to space out retries. It is
@@ -49,12 +62,25 @@ func (u *UpstreamError) Error() string {
 	return u.Err.Error()
 }
 
+// tokenResponse is the payload of the client credentials grant.
+type tokenResponse struct {
+	AccessToken string `json:"access_token"`
+	ExpiresIn   int    `json:"expires_in"`
+}
+
 type HttpClient interface {
 	Do(req *http.Request) (*http.Response, error)
 }
 
 type redditDownloaderRepository struct {
 	client HttpClient
+
+	// accessToken caches the client credentials token until shortly before
+	// it expires, so a read costs one extra request only when the cache is
+	// empty. A Lambda container serves many requests, so the cache pays off.
+	mu          sync.Mutex
+	accessToken string
+	tokenExpiry time.Time
 }
 
 func NewRedditDownloaderRepository(client HttpClient) *redditDownloaderRepository {
@@ -73,6 +99,18 @@ func (r *redditDownloaderRepository) DownloadVideo(url string, authToken ...stri
 		return nil, nil, err
 	}
 
+	authorization, err := r.GetAuthToken()
+	if err != nil {
+		slog.Error("Error getting auth token", "error", err)
+		return nil, nil, err
+	}
+
+	if authorization != "" {
+		// Authenticated reads go through the OAuth host; the www host
+		// answers them with 403.
+		jsonUrl = withOauthHost(jsonUrl)
+	}
+
 	req, err := http.NewRequest("GET", jsonUrl, nil)
 	if err != nil {
 		slog.Error("Error creating request", "error", err)
@@ -81,14 +119,8 @@ func (r *redditDownloaderRepository) DownloadVideo(url string, authToken ...stri
 
 	req.Header.Set("User-Agent", userAgent)
 
-	basicAuth, err := r.GetAuthToken()
-	if err != nil {
-		slog.Error("Error getting auth token", "error", err)
-		return nil, nil, err
-	}
-
-	if basicAuth != "" {
-		req.Header.Set("Authorization", basicAuth)
+	if authorization != "" {
+		req.Header.Set("Authorization", authorization)
 	}
 
 	statusCode, content, err := r.fetch(req)
@@ -226,9 +258,12 @@ func (r *redditDownloaderRepository) fetch(req *http.Request) (statusCode int, b
 	return 0, nil, lastErr
 }
 
-// GetAuthToken returns the Authorization header for Reddit. Public posts do not
-// need one, and placeholder credentials make Reddit reject the request, so the
-// header is only produced when real credentials are configured.
+// GetAuthToken returns the Authorization header for Reddit. Reddit answers
+// unauthenticated data API reads with 403, so with real app credentials the
+// header is a bearer token from the client credentials grant, cached until
+// shortly before it expires. With placeholder credentials no header is
+// produced: reads stay on the www host and fail honestly as an upstream
+// problem instead of pretending to be authenticated.
 func (r *redditDownloaderRepository) GetAuthToken() (authToken string, err error) {
 
 	redditClientId := os.Getenv("REDDIT_CLIENT_ID")
@@ -238,7 +273,74 @@ func (r *redditDownloaderRepository) GetAuthToken() (authToken string, err error
 		return "", nil
 	}
 
-	return "Basic " + redditClientId + ":" + redditClientSecret, nil
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	if r.accessToken != "" && time.Now().Before(r.tokenExpiry) {
+		return "Bearer " + r.accessToken, nil
+	}
+
+	req, err := http.NewRequest("POST", tokenUrl, strings.NewReader("grant_type=client_credentials"))
+	if err != nil {
+		return "", err
+	}
+
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req.Header.Set("User-Agent", userAgent)
+	req.SetBasicAuth(redditClientId, redditClientSecret)
+
+	resp, err := r.client.Do(req)
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+
+	content, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", err
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		slog.Error("Reddit token endpoint failed", "status", resp.StatusCode)
+		return "", fmt.Errorf("reddit token endpoint returned status %d", resp.StatusCode)
+	}
+
+	var token tokenResponse
+	if err := json.Unmarshal(content, &token); err != nil {
+		return "", err
+	}
+
+	if token.AccessToken == "" {
+		return "", errors.New("reddit token endpoint returned no access token")
+	}
+
+	lifetime := time.Duration(token.ExpiresIn) * time.Second
+	if lifetime > tokenExpiryMargin {
+		lifetime -= tokenExpiryMargin
+	} else {
+		lifetime /= 2
+	}
+
+	r.accessToken = token.AccessToken
+	r.tokenExpiry = time.Now().Add(lifetime)
+
+	slog.Debug("Reddit access token refreshed", "expires_at", r.tokenExpiry)
+
+	return "Bearer " + r.accessToken, nil
+}
+
+// withOauthHost moves a www.reddit.com JSON URL onto the OAuth host, which is
+// the one that serves data API reads to authenticated apps. Reads without a
+// token stay where they are and fail there honestly.
+func withOauthHost(jsonUrl string) string {
+	parsed, err := url.Parse(jsonUrl)
+	if err != nil {
+		return jsonUrl
+	}
+
+	parsed.Host = oauthHost
+
+	return parsed.String()
 }
 
 func isPlaceholder(value string) bool {
@@ -270,11 +372,12 @@ func (r *redditDownloaderRepository) GetJsonUrl(url string) (string, error) {
 
 		req.Header.Set("User-Agent", userAgent)
 
-		// Set Authorization header
-		basicAuth, _ := r.GetAuthToken()
+		// Set Authorization header. The redirect endpoint does not need it,
+		// but an authenticated short link resolution does no harm.
+		authorization, _ := r.GetAuthToken()
 
-		if basicAuth != "" {
-			req.Header.Set("Authorization", basicAuth)
+		if authorization != "" {
+			req.Header.Set("Authorization", authorization)
 		}
 
 		resp, err := client.Do(req)

@@ -20,8 +20,8 @@ Globals:
         REGION: !Ref Region
         ENVIRONMENT: !Ref Environment
         BOT_TOKEN: '{{resolve:ssm:/videohunter/telegram/bot/token:2}}'
-        REDDIT_CLIENT_ID: !Ref RedditClientId
-        REDDIT_CLIENT_SECRET: !Ref RedditClientSecret
+        REDDIT_CLIENT_ID: '{{resolve:ssm:/videohunter/reddit/client_id:1}}'
+        REDDIT_CLIENT_SECRET: '{{resolve:ssm:/videohunter/reddit/client_secret:1}}'
         # The video page handler refuses to start without this variable. The
         # name was mistyped here, so the value it needs was never set; the
         # spelling is corrected rather than left as a second, unread variable.
@@ -81,14 +81,6 @@ Parameters:
     Type: String
     Default: myvideohunter.com
     Description: Domain name for CloudFront distribution
-  RedditClientId:
-    Type: String
-    Default: dummy
-    Description: Reddit client ID
-  RedditClientSecret:
-    Type: String
-    Default: dummy
-    Description: Reddit client secret
   UserDataTableName:
     Type: String
     Default: user_data
