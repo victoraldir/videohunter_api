@@ -61,7 +61,7 @@ func TestGetXAPIService_SearchMentions(t *testing.T) {
 	assert.Equal(t, "https", captured.URL.Scheme)
 	assert.Equal(t, "api.getxapi.com", captured.URL.Host)
 	assert.Equal(t, "/twitter/tweet/advanced_search", captured.URL.Path)
-	assert.Equal(t, "@BaixadorDeVideo", captured.URL.Query().Get("q"))
+	assert.Equal(t, "(@BaixadorDeVideo) -from:BaixadorDeVideo", captured.URL.Query().Get("q"))
 	assert.Equal(t, "Latest", captured.URL.Query().Get("product"))
 	assert.Empty(t, captured.URL.Query().Get("cursor"))
 
