@@ -1,6 +1,7 @@
 package reddit
 
 import (
+	"encoding/base64"
 	"errors"
 	"io"
 	"net/http"
@@ -34,6 +35,8 @@ const videoListingFixture = `[
     }
   }
 ]`
+
+const tokenFixture = `{"access_token": "token-abc", "token_type": "bearer", "expires_in": 3600}`
 
 type stubClient struct {
 	responses []*http.Response
@@ -181,6 +184,8 @@ func TestDownloadVideo_IdentifiesItselfAndSkipsPlaceholderCredentials(t *testing
 	assert.Len(t, client.requests, 1)
 	assert.Equal(t, userAgent, client.requests[0].Header.Get("User-Agent"))
 	assert.Empty(t, client.requests[0].Header.Get("Authorization"))
+	// Without credentials the read stays on the pasted host, unauthenticated.
+	assert.Equal(t, "www.reddit.com", client.requests[0].URL.Host)
 }
 
 func TestDownloadVideo_UsesCredentialsWhenConfigured(t *testing.T) {
@@ -188,13 +193,75 @@ func TestDownloadVideo_UsesCredentialsWhenConfigured(t *testing.T) {
 	t.Setenv("REDDIT_CLIENT_ID", "real-id")
 	t.Setenv("REDDIT_CLIENT_SECRET", "real-secret")
 
-	client := &stubClient{responses: []*http.Response{newResponse(http.StatusOK, videoListingFixture)}}
+	client := &stubClient{responses: []*http.Response{
+		newResponse(http.StatusOK, tokenFixture),
+		newResponse(http.StatusOK, videoListingFixture),
+	}}
 	repository := NewRedditDownloaderRepository(client)
 
 	_, _, err := repository.DownloadVideo("https://www.reddit.com/r/videos/comments/1abcxyz/test/")
 
 	assert.NoError(t, err)
-	assert.Equal(t, "Basic real-id:real-secret", client.requests[0].Header.Get("Authorization"))
+	assert.Len(t, client.requests, 2)
+
+	// First the app credentials are exchanged for a bearer token.
+	tokenReq := client.requests[0]
+	assert.Equal(t, http.MethodPost, tokenReq.Method)
+	assert.Equal(t, tokenUrl, tokenReq.URL.String())
+	assert.Equal(t, "Basic "+base64.StdEncoding.EncodeToString([]byte("real-id:real-secret")),
+		tokenReq.Header.Get("Authorization"))
+
+	grantBody, readErr := io.ReadAll(tokenReq.Body)
+	assert.NoError(t, readErr)
+	assert.Equal(t, "grant_type=client_credentials", string(grantBody))
+
+	// Then the post is read from the OAuth host with the bearer token.
+	readReq := client.requests[1]
+	assert.Equal(t, http.MethodGet, readReq.Method)
+	assert.Equal(t, oauthHost, readReq.URL.Host)
+	assert.Equal(t, "/r/videos/comments/1abcxyz/test.json", readReq.URL.Path)
+	assert.Equal(t, "Bearer token-abc", readReq.Header.Get("Authorization"))
+	assert.Equal(t, userAgent, readReq.Header.Get("User-Agent"))
+}
+
+func TestDownloadVideo_CachesTokenBetweenReads(t *testing.T) {
+
+	t.Setenv("REDDIT_CLIENT_ID", "real-id")
+	t.Setenv("REDDIT_CLIENT_SECRET", "real-secret")
+
+	client := &stubClient{responses: []*http.Response{
+		newResponse(http.StatusOK, tokenFixture),
+		newResponse(http.StatusOK, videoListingFixture),
+		newResponse(http.StatusOK, videoListingFixture),
+	}}
+	repository := NewRedditDownloaderRepository(client)
+
+	postUrl := "https://www.reddit.com/r/videos/comments/1abcxyz/test/"
+
+	_, _, err := repository.DownloadVideo(postUrl)
+	assert.NoError(t, err)
+
+	_, _, err = repository.DownloadVideo(postUrl)
+	assert.NoError(t, err)
+
+	// The second read reuses the cached token: no second token exchange.
+	assert.Len(t, client.requests, 3)
+	assert.Equal(t, "Bearer token-abc", client.requests[2].Header.Get("Authorization"))
+	assert.Equal(t, oauthHost, client.requests[2].URL.Host)
+}
+
+func TestDownloadVideo_PropagatesTokenEndpointFailure(t *testing.T) {
+
+	t.Setenv("REDDIT_CLIENT_ID", "real-id")
+	t.Setenv("REDDIT_CLIENT_SECRET", "real-secret")
+
+	client := &stubClient{responses: []*http.Response{newResponse(http.StatusBadRequest, "")}}
+	repository := NewRedditDownloaderRepository(client)
+
+	_, _, err := repository.DownloadVideo("https://www.reddit.com/r/videos/comments/1abcxyz/test/")
+
+	assert.Error(t, err)
+	assert.Len(t, client.requests, 1)
 }
 
 func TestGetJsonUrl(t *testing.T) {
