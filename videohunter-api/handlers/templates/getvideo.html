@@ -69,24 +69,17 @@
         // The download buttons have to behave differently depending on where
         // the page is opened:
         //
-        // - In a normal browser the video is fetched as a blob and saved with
-        //   a spinner, which is how the page has always worked.
-        // - On iPhone and iPad the button opens the video in the system player
-        //   (inline=1) instead. A forced download lands in the Files app where
-        //   it has to be found again before it can be shared; from the player
-        //   the share sheet saves the video to Photos or sends it to any app
-        //   in one tap.
+        // - In a normal browser (desktop, Android, iPhone and iPad included)
+        //   the video is fetched as a blob and saved with a spinner, which is
+        //   how the page has always worked. An inline player flow was tried
+        //   for iOS and reverted: the system player was not reliable enough to
+        //   hand every user a way to save the video.
         // - In-app browsers (X, Instagram, Facebook, TikTok, Telegram...)
         //   silently ignore downloads, so a tap appears to do nothing. No
         //   JavaScript can force a download there, so the page asks to be
         //   reopened in a real browser instead.
         (function () {
             var ua = navigator.userAgent;
-
-            function isIOS() {
-                return /iPad|iPhone|iPod/.test(ua) ||
-                    (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1);
-            }
 
             // X's in-app browser identifies itself as "Twitter for iPhone".
             // The others are the webviews known to carry a marker; those
@@ -177,23 +170,6 @@
                 });
             }
 
-            function setupIOS() {
-                // The video opens in the player, and its share sheet is the
-                // quickest way to save or send it. The "save to files" link
-                // keeps the old behaviour for whoever wants the file itself.
-                document.querySelectorAll('.download-button').forEach(function (button) {
-                    button.href = button.href + '&inline=1';
-                });
-                document.getElementById('iosHint').classList.remove('d-none');
-                document.getElementById('saveToFiles').addEventListener('click', function (event) {
-                    event.preventDefault();
-                    var first = document.querySelector('.download-button');
-                    if (first) {
-                        downloadAsBlob(first.getAttribute('data-video'));
-                    }
-                });
-            }
-
             function setupDefault() {
                 document.querySelectorAll('.download-button').forEach(function (button) {
                     button.addEventListener('click', function (event) {
@@ -207,8 +183,6 @@
                 var name = inAppName();
                 if (name) {
                     setupInAppBrowser(name);
-                } else if (isIOS()) {
-                    setupIOS();
                 } else {
                     setupDefault();
                 }
@@ -324,11 +298,6 @@
                             {{ end }}
                             {{ end }}
                         </div>
-                        {{/* Unhidden on iPhone and iPad by the script above. */}}
-                        <p id="iosHint" class="small text-muted mt-3 mb-0 d-none">
-                            The video opens in the player: use its share button to save it to Photos or share it
-                            anywhere. Prefer a file? <a href="#" id="saveToFiles">Save to Files</a>.
-                        </p>
                     </section>
                     {{/* Filled in by /assets/video-page.js: a "save to a folder"
                          button for signed in users, a login link otherwise. */}}
@@ -344,9 +313,9 @@
         <h2 class="h5">How to download this video</h2>
         <ol>
             <li>Click the download button for the quality you want.</li>
-            <li>On iPhone and iPad the video opens in the player: use its Share button to save the video to Photos
-                or share it to any app. On desktop and Android the video is saved to your device's default
-                download folder.</li>
+            <li>The video is saved to your device's default download folder.</li>
+            <li>If the video opens in a player instead of saving, tap and hold (mobile) or right-click (desktop) and
+                choose "Save link as".</li>
             <li>Downloading from inside the X (Twitter), Instagram, Facebook or Telegram app? Their in-app browsers
                 block downloads, so nothing is saved. Copy the page link, open it in Safari or Chrome and download
                 there.</li>
