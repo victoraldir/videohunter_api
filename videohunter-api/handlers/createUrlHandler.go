@@ -96,6 +96,17 @@ func (h *CreateUrlHandler) errorResponse(err error) events_aws.APIGatewayProxyRe
 			"The platform is not responding right now. Please try again in a moment.")
 	}
 
+	// Reddit blocks the /s/ share pages for this service's IP range on every
+	// host, so a share link cannot be resolved here no matter how often it is
+	// retried. The guidance is the fix: open the link in a browser and paste
+	// the post address it leads to.
+	var blockedShareLink *reddit.BlockedShareLinkError
+	if errors.As(err, &blockedShareLink) {
+		slog.Info("Share link blocked for this service", "status", blockedShareLink.StatusCode, "error", blockedShareLink.Err)
+		return jsonResponse(http.StatusBadRequest,
+			"Reddit share links (the ones with /s/ in them) cannot be resolved here. Open the link in your browser, then paste the full post address (the one with /comments/) instead.")
+	}
+
 	slog.Error("Error downloading video", "error", err)
 	return jsonResponse(http.StatusInternalServerError,
 		"Something went wrong while fetching the video. Please try again.")

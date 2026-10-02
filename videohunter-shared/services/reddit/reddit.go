@@ -21,6 +21,9 @@ const (
 	// userAgent identifies the service to Reddit. Reddit answers the default
 	// Go user agent with an error status.
 	userAgent = "VideoHunter/1.0 (+https://www.myvideohunter.com)"
+	// browserUserAgent is used for the share link pages only: the challenge
+	// flow mirrors what a browser does with those pages.
+	browserUserAgent = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
 	// requestAttempts is how many times a rate limited or failed request is
 	// retried before giving up.
 	requestAttempts = 3
@@ -61,6 +64,20 @@ type UpstreamError struct {
 
 func (u *UpstreamError) Error() string {
 	return u.Err.Error()
+}
+
+// BlockedShareLinkError reports that Reddit answered the share link fetch
+// with its block page instead of the share page. Reddit serves the share
+// pages of /s/ links to residential IPs but blocks this service's IP range on
+// every host, so a share link has to be opened in a browser to find the post
+// it leads to. Retrying will not help.
+type BlockedShareLinkError struct {
+	StatusCode int
+	Err        error
+}
+
+func (b *BlockedShareLinkError) Error() string {
+	return b.Err.Error()
 }
 
 // tokenResponse is the payload of the client credentials grant.
@@ -449,10 +466,14 @@ func (r *redditDownloaderRepository) ResolveShareUrl(shareUrl string) (string, e
 	}
 
 	if page.statusCode != http.StatusOK {
-		if page.statusCode == http.StatusNotFound {
+		switch page.statusCode {
+		case http.StatusNotFound:
 			return "", &InvalidPostError{StatusCode: page.statusCode, Err: fmt.Errorf("share link not found")}
+		case http.StatusForbidden, http.StatusUnauthorized:
+			return "", &BlockedShareLinkError{StatusCode: page.statusCode, Err: fmt.Errorf("share link fetch returned status %d", page.statusCode)}
+		default:
+			return "", &UpstreamError{StatusCode: page.statusCode, Err: fmt.Errorf("share link fetch returned status %d", page.statusCode)}
 		}
-		return "", &UpstreamError{StatusCode: page.statusCode, Err: fmt.Errorf("share link fetch returned status %d", page.statusCode)}
 	}
 
 	return extractSharePermalink(page.body)
@@ -478,7 +499,7 @@ func (r *redditDownloaderRepository) fetchSharePage(target, referer, cookie, aut
 		return nil, err
 	}
 
-	req.Header.Set("User-Agent", userAgent)
+	req.Header.Set("User-Agent", browserUserAgent)
 	req.Header.Set("Accept", "text/html")
 
 	if referer != "" {
